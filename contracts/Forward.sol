@@ -8,16 +8,55 @@ pragma solidity >=0.8.2 <0.9.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 //Smart contract
 contract Forward is ERC1155 {
-    uint256 public constant saleToken = 0;
+    uint256 public constant forwardToken = 0;
+    uint256 public constant handelerToken = 0;
+    uint public realeaseDate = 0;
+    uint public price = 0;
+    bool public contractSold = false;
 
     constructor() ERC1155("https://thisissomeMetaData/{id}.json") {
-        _mint(msg.sender,saleToken,1, "");
+        _mint(msg.sender,handelerToken,1, "");
+    }
+
+    modifier Handeler{
+        require(balanceOf(msg.sender,handelerToken) == 1);
+        _;
+    }
+    modifier ForwardToken{
+        require(balanceOf(msg.sender,forwardToken) == 1);
+        require(block.timestamp <= realeaseDate);
+        _;
+    }
+    modifier bought{
+        require(contractSold == false);
+        _;
+    }
+
+    // Crreate func to list token price and drop commodities token in forwards contract | as well as collatoral limit
+    function listSale(uint _realeaseDate, uint _price) public Handeler bought returns(bool){
+    realeaseDate = _realeaseDate;
+    price = _price;
+     return true;
+    }
+    // create sales function to but contract 
+    function buyForwardsToken()public payable  bought returns(bool){
+        _mint(msg.sender,forwardToken,1, "");
+        return true;
+    }
+    // token holder can redeem contract once time has elaps
+    function redeemForward()public ForwardToken returns(bool){
+
+        return true;
     }
     
-    // Crreate func to list token price and drop commodities tokn in forwards contract | as well as collatoral limit
-
-    // create sales function to but contract 
-
-
-    // token holder can redeem contract once time has elaps
+    //ERC1155Received fuctions
+    function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory) public virtual returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
+    }
+    function onERC721Received(address, address, uint256, bytes memory) public virtual returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
 }
