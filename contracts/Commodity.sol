@@ -10,7 +10,7 @@ contract Commodity is ERC1155 {
     //execution price
     uint XPrice = 10000000000000000000; // 1XDC
     //Execute some code when contract is launched
-    constructor() ERC1155("https://this is soimeMetaData/{id}.json") {}
+    constructor() ERC1155("https://thisissomeMetaData/{id}.json") {}
     //if user doesnt have enough they cant execute function
     modifier price(){
         require(msg.value >= XPrice);
