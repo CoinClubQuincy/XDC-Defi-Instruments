@@ -1,14 +1,10 @@
-// There are four key differences between forward vs future contracts: 
-// forwards are non-transferable,customizable, and illiquid, 
-// as well as exposed to counterparty default risk.
-//  Details like quantity,expiration date, and price can be adjusted as agreed upon in the contract between the two parties privately.
 
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 //Smart contract
-contract Forward is ERC1155 {
-    uint256 public constant forwardToken = 0;
+contract Future is ERC1155 {
+    uint256 public constant futureToken = 0;
     uint256 public constant handelerToken = 0;
     uint public realeaseDate = 0;
     uint public price = 0;
@@ -23,8 +19,8 @@ contract Forward is ERC1155 {
         _;
     }
     //only the holder of the ForwardToken can access functions with this modifier
-    modifier ForwardToken{
-        require(balanceOf(msg.sender,forwardToken) == 1);
+    modifier FutureToken{
+        require(balanceOf(msg.sender,futureToken) == 1);
         require(block.timestamp <= realeaseDate);
         _;
     }
@@ -40,13 +36,13 @@ contract Forward is ERC1155 {
         return true;
     }
     // create sales function to but contract 
-    function buyForwardsToken()public payable  bought returns(bool){
-        _mint(msg.sender,forwardToken,1, "");
+    function buyFutureToken()public payable  bought returns(bool){
+        _mint(msg.sender,futureToken,1, "");
         contractSold = true;
         return true;
     }
     // token holder can redeem contract once time has elaps
-    function redeemForward()public ForwardToken returns(bool){
+    function redeemFuture()public FutureToken returns(bool){
 
         return true;
     }
