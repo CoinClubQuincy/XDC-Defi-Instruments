@@ -18,7 +18,7 @@ contract Future is ERC1155 {
         require(balanceOf(msg.sender,handelerToken) == 1);
         _;
     }
-    //only the holder of the ForwardToken can access functions with this modifier
+    //only the holder of the FutureToken can access functions with this modifier
     modifier FutureToken{
         require(balanceOf(msg.sender,futureToken) == 1);
         require(block.timestamp <= realeaseDate);
@@ -29,7 +29,7 @@ contract Future is ERC1155 {
         require(contractSold == false);
         _;
     }
-    // Crreate func to list token price and drop commodities token in forwards contract | as well as collatoral limit
+    // Crreate func to list token price and drop commodities token in Futures contract | as well as collatoral limit
     function listSale(uint _realeaseDate, uint _price) public Handeler bought returns(bool){
         realeaseDate = _realeaseDate;
         price = _price;
