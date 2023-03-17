@@ -18,18 +18,18 @@ contract Forward is ERC1155 {
     uint public realeaseDate = 0;
     uint public price = 0;
     bool public contractSold = false;
-    address public CommodityTokenAddress;
+    address public AssetTokenAddress;
     ASSET public Asset;
-    uint[] public CommodityTokens;
+    uint[] public AssetTokens;
     address[] public TokenList;
     uint[] public TokenAmmounts;
     uint[] public Tokens;
 
-    constructor(address[] memory _CommodityTokenAddress,uint[] memory _Tokens) ERC1155("https://thisissomeMetaData/{id}.json") {
-        CommodityTokenAddress = _CommodityTokenAddress[0];
+    constructor(address[] memory _AssetTokenAddress,uint[] memory _Tokens) ERC1155("https://thisissomeMetaData/{id}.json") {
+        AssetTokenAddress = _AssetTokenAddress[0];
         Tokens = _Tokens;
-        Asset = ASSET(CommodityTokenAddress);
-        //CommodityTokenAddress.safeTransferFrom(address(this),msg.sender,shareToken, 1, "");
+        Asset = ASSET(AssetTokenAddress);
+        //AssetTokenAddress.safeTransferFrom(address(this),msg.sender,shareToken, 1, "");
         for (uint i; i <= _Tokens.length;i++) {
             TokenList.push(address(this));
             TokenAmmounts.push(1);
