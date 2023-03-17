@@ -10,8 +10,7 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 contract ASSET is ERC1155 {
         constructor() ERC1155("https://thisissomeMetaData/{id}.json") {
     }
-}
-
+} 
 //Smart contract
 contract Forward is ERC1155 {
     uint256 public constant forwardToken = 0;
@@ -24,9 +23,11 @@ contract Forward is ERC1155 {
     uint[] public CommodityTokens;
     address[] public TokenList;
     uint[] public TokenAmmounts;
+    uint[] public Tokens;
 
     constructor(address[] memory _CommodityTokenAddress,uint[] memory _Tokens) ERC1155("https://thisissomeMetaData/{id}.json") {
         CommodityTokenAddress = _CommodityTokenAddress[0];
+        Tokens = _Tokens;
         Asset = ASSET(CommodityTokenAddress);
         //CommodityTokenAddress.safeTransferFrom(address(this),msg.sender,shareToken, 1, "");
         for (uint i; i <= _Tokens.length;i++) {
@@ -66,7 +67,7 @@ contract Forward is ERC1155 {
     }
     // token holder can redeem contract once time has elaps
     function redeemForward()public ForwardToken returns(bool,string memory){
-        Asset.safeTransferFrom(address(this), msg.sender, TokenList, TokenAmmounts, "");
+        Asset.safeBatchTransferFrom(address(this), msg.sender, Tokens, TokenAmmounts, "0x0");
         return (true,"Forward Contract Redeemed");
     }
     //ERC1155Received fuctions
