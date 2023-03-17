@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
-import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
+
 //Smart contract
 contract GenerateRandomStats {
 
@@ -22,8 +22,8 @@ contract GenerateRandomStats {
     }
     //generates a number thats "random enough"
     function randomStats(uint _entrapy, uint _multiplier) public view returns(uint){ 
-        uint256 seed = uint256(keccak256(abi.encodePacked( block.timestamp + block.difficulty +
-        ((uint256(keccak256(abi.encodePacked(block.coinbase)))) / (block.timestamp)) +
+        uint256 seed = uint256(keccak256(abi.encodePacked( block.timestamp + block.prevrandao +
+        ((uint256(keccak256(abi.encodePacked(block.coinbase)))) / (block.prevrandao)) +
         block.gaslimit + 
         ((uint256(keccak256(abi.encodePacked(msg.sender)))) / (block.timestamp)) +
         block.number + _entrapy)));
