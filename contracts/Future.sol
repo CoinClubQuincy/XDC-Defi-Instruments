@@ -48,7 +48,7 @@ contract Future is ERC1155 {
     }
     //only the holder of the FutureToken can access functions with this modifier
     modifier FutureToken{
-        require(balanceOf(msg.sender,futureToken) == 1,"yoou currently do not have custody of this contracts token");
+        require(balanceOf(msg.sender,futureToken) == 1,"you currently do not have custody of this contracts token");
         require(block.timestamp >= realeaseDate,"the date of maturity has not passed");
         _;
     }
