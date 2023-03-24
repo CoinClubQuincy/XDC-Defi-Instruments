@@ -25,7 +25,7 @@ contract Forward is ERC1155 {
     uint[] public TokenAmmounts;
     uint[] public Tokens;
 
-    constructor(address[] memory _AssetTokenAddress,uint[] memory _Tokens) ERC1155("https://thisissomeMetaData/{id}.json") {
+    constructor(address[] memory _AssetTokenAddress,uint[] memory _Tokens, string memory _URI) ERC1155(_URI) {
         AssetTokenAddress = _AssetTokenAddress[0];
         Tokens = _Tokens;
         Asset = ASSET(AssetTokenAddress);

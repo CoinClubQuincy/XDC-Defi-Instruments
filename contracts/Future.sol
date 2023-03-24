@@ -24,7 +24,7 @@ contract Future is ERC1155 {
     uint public fee; // 1 = 0.1% 10 basis points
     uint public currentFee;
 
-    constructor(address[] memory _AssetTokenAddress,uint[] memory _Tokens,uint _divisable, uint _fee) ERC1155("https://thisissomeMetaData/{id}.json") {
+    constructor(address[] memory _AssetTokenAddress,uint[] memory _Tokens,uint _divisable, uint _fee, string memory _URI) ERC1155(_URI) {
         AssetTokenAddress = _AssetTokenAddress[0];
         Tokens = _Tokens;
         Deposit = _divisable;
