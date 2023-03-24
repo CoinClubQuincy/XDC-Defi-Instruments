@@ -39,18 +39,18 @@ contract Forward is ERC1155 {
     }
     //only the holder of the handlerToken can access functions with this modifier
     modifier Handeler{
-        require(balanceOf(msg.sender,handelerToken) == 1);
+        require(balanceOf(msg.sender,handelerToken) == 1,"you are currently not the handeler of this contract");
         _;
     }
     //only the holder of the ForwardToken can access functions with this modifier
     modifier ForwardToken{
-        require(balanceOf(msg.sender,forwardToken) == 1);
-        require(block.timestamp >= realeaseDate);
+        require(balanceOf(msg.sender,forwardToken) == 1,"you currently do not have custody of this contracts token");
+        require(block.timestamp >= realeaseDate,"the date of maturity has not passed");
         _;
     }
     // if token has been bought user cant execute the fuction with this modifire
     modifier bought{
-        require(contractSold == false);
+        require(contractSold == false,"contract has been sold");
         _;
     }
     // Crreate func to list token price and drop commodities token in forwards contract | as well as collatoral limit
