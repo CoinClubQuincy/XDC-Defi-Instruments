@@ -45,7 +45,7 @@ contract Forward is ERC1155 {
     //only the holder of the ForwardToken can access functions with this modifier
     modifier ForwardToken{
         require(balanceOf(msg.sender,forwardToken) == 1);
-        require(block.timestamp <= realeaseDate);
+        require(block.timestamp >= realeaseDate);
         _;
     }
     // if token has been bought user cant execute the fuction with this modifire
