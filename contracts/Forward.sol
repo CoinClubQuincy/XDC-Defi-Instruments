@@ -61,6 +61,10 @@ contract Forward is ERC1155 {
     }
     // create sales function to but contract 
     function buyForwardsToken()public payable  bought returns(bool){
+        require(msg.value>=price,"funds note enough to purchace contract");
+        if(msg.value>price){
+            payable(msg.sender).transfer(msg.value - price);
+        }
         _mint(msg.sender,forwardToken,1, "");
         contractSold = true;
         return true;
