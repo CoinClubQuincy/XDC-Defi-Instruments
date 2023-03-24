@@ -25,6 +25,7 @@ contract Future is ERC1155 {
     uint public currentFee;
     uint public redemptionTimeLimit; // the total amount of time before contract defaults after maturity in seconds standard 1Day- 1Week
     bool DefaultStatus = false;
+    bool CompletionStatus = false;
 
     constructor(address[] memory _AssetTokenAddress,uint[] memory _Tokens,uint _divisable, uint _fee, string memory _URI,uint _redemptionTimeLimit) ERC1155(_URI) {
         AssetTokenAddress = _AssetTokenAddress[0];
@@ -53,9 +54,7 @@ contract Future is ERC1155 {
         _;
     }
     modifier PurchaseAsset{
-        if(redemptionTimeLimit + realeaseDate <= block.timestamp){
-            DefaultStatus = true;
-        }
+        status();
         returnChange(price);
         require(DefaultStatus = false, "Contract in Default");
         require(msg.value >= price,"not enough funds");
@@ -70,6 +69,14 @@ contract Future is ERC1155 {
     function returnChange(uint _total)internal{
         if(msg.value>_total){
             payable(msg.sender).transfer(msg.value - _total);
+        }
+    }
+    function status()internal returns(bool) {
+        if(redemptionTimeLimit + realeaseDate <= block.timestamp){
+            DefaultStatus = true;
+            return true;
+        } else {
+            return false;
         }
     }
     // Crreate func to list token price and drop commodities token in futures contract | as well as collatoral limit
@@ -90,12 +97,22 @@ contract Future is ERC1155 {
     function BuyAsset()public payable FutureToken PurchaseAsset returns(bool,string memory){
         payable(msg.sender).transfer(Deposit);
         Asset.safeBatchTransferFrom(address(this), msg.sender, Tokens, TokenAmmounts, "0x0");
+        CompletionStatus = true;
         return (true,"Future Contract Redeemed");
     }
     function redeemDeposit()public payable Handler returns(bool,string memory){
         require(contractSold = true,"contract not sold");
         payable(msg.sender).transfer(Deposit + currentFee);
         return (true,"Future Contract Redeemed");
+    }
+    function checkContractStatus()public returns(string memory) {
+        if(status() == true){
+            return ("Contract is in Default");
+        } else if(CompletionStatus = true){
+            return "Contract is Completed";
+        } else {
+            return "Contract Currently Pending";
+        }
     }
     //ERC1155Received fuctions
     function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
