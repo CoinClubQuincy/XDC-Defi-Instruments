@@ -6,11 +6,13 @@ contract Commodity is ERC1155 {
     //Token
     uint256 public constant Item = 0;
     //toal tokens
-    uint totalCoins = 0;
+    uint public totalCoins = 0;
     //execution price
-    uint XPrice = 10000000000000000000; // 1XDC
+    uint public XPrice; // 1XDC
     //Execute some code when contract is launched
-    constructor() ERC1155("https://thisissomeMetaData/{id}.json") {}
+    constructor(uint _XPrice,string memory _URI) ERC1155(_URI) {
+        XPrice = _XPrice;
+    }
     //if user doesnt have enough they cant execute function
     modifier price(){
         require(msg.value >= XPrice);
