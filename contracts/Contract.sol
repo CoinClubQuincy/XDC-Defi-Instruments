@@ -16,7 +16,7 @@ contract Contract is ERC1155 {
 
     bool public contractComplete = false;
     //Create 2 tokens for Party A-B
-    constructor(string memory _DocumentHash) ERC1155("https://thisissomeMetaData/{id}.json") {
+    constructor(string memory _DocumentHash, string memory _URI) ERC1155(_URI) {
         DocumentHash = _DocumentHash;
         _mint(msg.sender,PartyA,1, "");
         _mint(msg.sender,PartyB,1, "");
