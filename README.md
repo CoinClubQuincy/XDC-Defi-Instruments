@@ -15,6 +15,5 @@ This is a repository That contains a set of templates for automated Trade financ
 # Forward Contract 
 ![template contracts-3](https://user-images.githubusercontent.com/16103963/228897606-38ade8cb-1cac-4478-8c12-4a2b4c9fc77f.png)
 
-
-
 # Futures Contract 
+![template contracts-5](https://user-images.githubusercontent.com/16103963/228948322-9d968faf-4722-4ab6-b7f2-177222935b7b.png)
