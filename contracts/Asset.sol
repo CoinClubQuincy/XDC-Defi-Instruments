@@ -1,21 +1,28 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity >=0.8.2 <0.9.0;
+pragma solidity ^0.8.2;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 //Smart contract
-contract Commodity is ERC1155 {
+contract Asset is ERC1155 {
     //Token
     uint256 public constant Item = 0;
     //toal tokens
     uint public totalCoins = 0;
+    uint public handlerToken;
     //execution price
     uint public XPrice; // 1XDC
     //Execute some code when contract is launched
     constructor(uint _XPrice,string memory _URI) ERC1155(_URI) {
         XPrice = _XPrice;
+        handlerToken = uint(keccak256(abi.encodePacked(_URI)));
+        _mint(msg.sender,handlerToken,1, "");
     }
     //if user doesnt have enough they cant execute function
     modifier price(){
         require(msg.value >= XPrice);
+        _;
+    }
+    modifier handler(){
+        require(balanceOf(msg.sender,handlerToken) == 1, "user does not hold handlerToken");
         _;
     }
     //map token number to struct and mappping
@@ -27,7 +34,7 @@ contract Commodity is ERC1155 {
         string attribute3;
     }
     //function to add or create a token
-    function AddToken(string memory name, string memory att1, string memory att2 ,string memory att3)public returns(bool){
+    function AddToken(string memory name, string memory att1, string memory att2 ,string memory att3)public handler returns(bool){
         //creates the token
         _mint(msg.sender,totalCoins,1, "");
         //asigns attributes
@@ -36,12 +43,18 @@ contract Commodity is ERC1155 {
         totalCoins++;
         return true;
     }
-    //view data for free
+    //view token name data for free
     function viewAtt(uint Token)public view returns(string memory){
         return (tokens[Token].name);
     }
-    //pay to view data
+    //pay to view all token data
     function payAtt(uint Token)public payable price returns(string memory,string memory,string memory,string memory){
         return (tokens[Token].name,tokens[Token].attribute1,tokens[Token].attribute2,tokens[Token].attribute3);
+    }
+    //refund user if they overpay
+    function refund()internal {
+        if(msg.value>XPrice){
+            payable(msg.sender).transfer(msg.value - XPrice);
+        }
     }
 }

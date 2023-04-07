@@ -14,32 +14,23 @@ contract ASSET is ERC1155 {
 //Smart contract
 contract Forward is ERC1155 {
     uint256 public constant forwardToken = 0;
-    uint256 public constant handelerToken = 0;
+    uint256 public handlerToken;
     uint public realeaseDate = 0;
     uint public price = 0;
     bool public contractSold = false;
     address public AssetTokenAddress;
     ASSET public Asset;
-    uint[] public AssetTokens;
-    address[] public TokenList;
     uint[] public TokenAmmounts;
-    uint[] public Tokens;
+    uint public Tokens;
+    bool public activated;
 
-    constructor(address[] memory _AssetTokenAddress,uint[] memory _Tokens, string memory _URI) ERC1155(_URI) {
-        AssetTokenAddress = _AssetTokenAddress[0];
-        Tokens = _Tokens;
-        Asset = ASSET(AssetTokenAddress);
-        //AssetTokenAddress.safeTransferFrom(address(this),msg.sender,shareToken, 1, "");
-        for (uint i; i <= _Tokens.length;i++) {
-            TokenList.push(address(this));
-            TokenAmmounts.push(1);
-        }
-        require(Asset.balanceOfBatch(TokenList, _Tokens).length == _Tokens.length, "Contract must hold tokens");
-        _mint(msg.sender,handelerToken,1, "");
+    constructor(string memory _URI) ERC1155(_URI) {
+        handlerToken = uint(keccak256(abi.encodePacked(_URI)));
+        _mint(msg.sender,handlerToken,1, "");
     }
     //only the holder of the handlerToken can access functions with this modifier
-    modifier Handeler{
-        require(balanceOf(msg.sender,handelerToken) == 1,"you are currently not the handeler of this contract");
+    modifier Handler{
+        require(balanceOf(msg.sender,handlerToken) == 1,"you are currently not the handeler of this contract");
         _;
     }
     //only the holder of the ForwardToken can access functions with this modifier
@@ -53,26 +44,45 @@ contract Forward is ERC1155 {
         require(contractSold == false,"contract has been sold");
         _;
     }
-    // Crreate func to list token price and drop commodities token in forwards contract | as well as collatoral limit
-    function listSale(uint _realeaseDate, uint _price) public Handeler bought returns(bool){
+    modifier activate{
+        require(activated == true,"contract has not been activated");
+        _;
+    }
+
+    function checkBlockNumber()public view returns(uint){
+        return block.number;
+    }
+
+    // Create func to list token price and drop commodities token in forwards contract
+    function deployAssets(address _AssetTokenAddress,uint _Tokens,uint _realeaseDate, uint _price)public Handler returns(bool){
         realeaseDate = _realeaseDate;
         price = _price;
-        return true;
+        AssetTokenAddress = _AssetTokenAddress;
+        Tokens = _Tokens;
+        Asset = ASSET(AssetTokenAddress);
+        Asset.safeTransferFrom(msg.sender,address(this),_Tokens, 1, "");
+        activated = true;
     }
     // create sales function to but contract 
-    function buyForwardsToken()public payable  bought returns(bool){
-        require(msg.value>=price,"funds note enough to purchace contract");
-        if(msg.value>price){
-            payable(msg.sender).transfer(msg.value - price);
-        }
+    function buyForwardsToken()public payable  bought activate returns(bool){
+        require(msg.value>=price,"funds not enough to purchase contract");
+        refund();
         _mint(msg.sender,forwardToken,1, "");
         contractSold = true;
         return true;
     }
     // token holder can redeem contract once time has elaps
     function redeemForward()public ForwardToken returns(bool,string memory){
-        Asset.safeBatchTransferFrom(address(this), msg.sender, Tokens, TokenAmmounts, "0x0");
+        Asset.safeTransferFrom(address(this), msg.sender, Tokens, 1, "0x0");
         return (true,"Forward Contract Redeemed");
+    }
+    function redeemContractValue()public Handler returns(bool){
+        payable(msg.sender).transfer(address(this).balance);
+    }
+    function refund()internal {
+        if(msg.value>price){
+            payable(msg.sender).transfer(msg.value - price);
+        }
     }
     //ERC1155Received fuctions
     function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
