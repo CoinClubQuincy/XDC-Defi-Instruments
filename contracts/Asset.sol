@@ -19,6 +19,7 @@ contract Asset is ERC1155 {
     //if user doesnt have enough they cant execute function
     modifier price(){
         require(msg.value >= XPrice, "Not enough Funds");
+        refund();
         _;
     }
     modifier handler(){
@@ -48,8 +49,9 @@ contract Asset is ERC1155 {
         return (tokens[Token].name);
     }
     //pay to view all token data
-    function payAtt(uint Token)public payable price returns(string memory,string memory,string memory,string memory){
-        return (tokens[Token].name,tokens[Token].attribute1,tokens[Token].attribute2,tokens[Token].attribute3);
+    function payAtt(uint Token) public payable price returns(string memory, string memory, string memory, string memory) {
+        //Proof of concept most data  would be a calulation of consolidation of data both from the natic contract but also seperate smart contracts
+        return (tokens[Token].name, tokens[Token].attribute1, tokens[Token].attribute2, tokens[Token].attribute3);
     }
     //handler Can redeem funds from contract
     function redeemContractValue()public handler returns(bool){
