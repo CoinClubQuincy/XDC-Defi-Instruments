@@ -35,7 +35,7 @@ describe("Asset", function () {
         Buyer = signers[1];
 
         //lauch Asset Contract
-        Xprice = ethers.utils.parseUnits("0.01", "ether"); // 1/100 of an  XDC
+        Xprice = ethers.utils.parseUnits("0.01", "ether"); // 1/100 of an XDC
         Tprice = ethers.utils.parseUnits("1.00", "ether");
 
         const Asset = await hre.ethers.getContractFactory("Asset");
