@@ -2,8 +2,6 @@ const { expect } = require("chai");
 const hre = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
 
-
-
 describe("Asset", function () {
     let AssetContractAddress;
     let ForwardContractAddress;
@@ -15,6 +13,9 @@ describe("Asset", function () {
     let Seller;
     let Buyer;
     let signers;
+
+    let handlerToken;
+
 
     async function CheckBlockNumber() {
         blockNumber = await Fasset.connect(Seller).checkBlockNumber();
@@ -54,9 +55,9 @@ describe("Asset", function () {
         let setApprovalForAll = await asset.connect(Seller).setApprovalForAll(ForwardContractAddress,true);
         
 
-        let handlerToken = await asset.connect(Seller).handlerToken();
+        handlerToken = await asset.connect(Seller).handlerToken();
         let balanceOf = await asset.connect(Seller).balanceOf(Seller.address,handlerToken);
-        console.log("Seller holds Hander Token  " + balanceOf);
+        console.log("Seller holds Handler Token  " + balanceOf);
         await consolePauseLog("Check Handeler Token");
 
         await consolePauseLog("Deploying Contract...");
@@ -85,9 +86,15 @@ describe("Asset", function () {
         let result = await Fasset.connect(Buyer).buyForwardsToken({value: Tprice});
 
         await CheckBlockNumber()
+        let balanceOf = await Fasset.connect(Buyer).balanceOf(Buyer.address,0);
+        console.log("Buyer holds Forward Token  " + balanceOf);
 
         let redeemForward = await Fasset.connect(Buyer).redeemForward();
-        await consolePauseLog("buy Forward Token");
+
+
+        balanceOf = await asset.connect(Buyer).balanceOf(Buyer.address,0);
+        console.log("Buyer holds Asset  " + balanceOf);
+        await consolePauseLog("Bought and Redeem Forward Asset");
         expect(AssetContractAddress).to.not.equal('');
     });
 
