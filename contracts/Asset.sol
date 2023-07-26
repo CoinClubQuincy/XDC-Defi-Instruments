@@ -1,67 +1,68 @@
 // SPDX-License-Identifier: GPL-3.0
-pragma solidity ^0.8.2;
+pragma solidity >=0.8.2 <0.9.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-//Smart contract
+
+//This contract is a representation of how a simple asset that can 
+//be issued on the XDC Network as a derivative of a tangable asset
+//:Stocks | Commodities | Tresuries 
 contract Asset is ERC1155 {
-    //Token
-    uint256 public constant Item = 0;
-    //toal tokens
-    uint public totalCoins = 0;
-    uint public handlerToken;
-    //execution price
-    uint public XPrice; // 1XDC
-    //Execute some code when contract is launched
-    constructor(uint _XPrice,string memory _URI) ERC1155(_URI) {
-        XPrice = _XPrice;
+    uint public totalCoins = 0;     //toal tokens
+    uint public handlerToken;       
+    
+    //initializer Execute some initial code as contract is launched
+    constructor(string memory _URI) ERC1155(_URI) {
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(msg.sender,handlerToken,1, "");
     }
-    //if user doesnt have enough they cant execute function
-    modifier price(){
-        require(msg.value >= XPrice, "Not enough Funds");
-        refund();
-        _;
-    }
+    //The Handler function allows the holder of the handler token to allows the owner of the contract create more assets 
+    // As well as allows only the handler to redeem value from the contract
     modifier handler(){
         require(balanceOf(msg.sender,handlerToken) == 1, "user does not hold handlerToken");
         _;
     }
-    //map token number to struct and mappping
+
+    //Store Asset details within contract  
     mapping(uint => Tokens) public tokens;
     struct Tokens{
         string name;
         string attribute1;
         string attribute2;
         string attribute3;
+        uint price;
     }
-    //function to add or create a token
-    function AddToken(string memory name, string memory att1, string memory att2 ,string memory att3)public handler returns(bool){
-        //creates the token
+
+    //This function allows you to add or create new tokens and log their data into the smart contract 
+    function AddToken(string memory name, string memory att1, string memory att2 ,string memory att3,uint price)public handler returns(bool){
         _mint(msg.sender,totalCoins,1, "");
-        //asigns attributes
-        tokens[totalCoins] = Tokens(name,att1,att2,att3);
-        //keeps track of ammount of tokens
+        tokens[totalCoins] = Tokens(name,att1,att2,att3,price);
         totalCoins++;
         return true;
     }
-    //view token name data for free
-    function viewAtt(uint Token)public view returns(string memory){
-        return (tokens[Token].name);
+
+    //view token name and price of token to gauge what asset is corelated to the index nuber acociatyed with the asset
+    function viewAtt(uint Token)public view returns(string memory,uint){
+        return (tokens[Token].name,tokens[Token].price);
     }
-    //pay to view all token data
-    function payAtt(uint Token) public payable price returns(string memory, string memory, string memory, string memory) {
-        //Proof of concept most data  would be a calulation of consolidation of data both from the natic contract but also seperate smart contracts
+
+    //Users must pay to view all token data within this contract allowing th
+    function payAtt(uint Token) public payable  returns(string memory, string memory, string memory, string memory) {
+        //if user doesnt have enough they cant execute function
+        require(msg.value >= tokens[Token].price, "Not enough Funds");
+        refund(msg.value);
+
         return (tokens[Token].name, tokens[Token].attribute1, tokens[Token].attribute2, tokens[Token].attribute3);
     }
-    //handler Can redeem funds from contract
+    
+    //Only handler Can redeem funds from contract
     function redeemContractValue()public handler returns(bool){
         payable(msg.sender).transfer(address(this).balance);
         return true;
     }
+
     //refund user if they overpay
-    function refund()internal {
-        if(msg.value>XPrice){
-            payable(msg.sender).transfer(msg.value - XPrice);
+    function refund(uint price)internal {
+        if(msg.value>price){
+            payable(msg.sender).transfer(msg.value - price);
         }
     }
 }
