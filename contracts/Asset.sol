@@ -37,21 +37,23 @@ contract Asset is ERC1155 {
         string name;
         string description;
         string image;
+        string assetType;
     }
 
     //This function allows you to add or create new tokens and log their data into the smart contract 
-    function AddToken(string memory name, string memory att1, string memory att2 ,string memory att3)public handler returns(bool){
+    function AddToken(string memory name, string memory att1, string memory att2 ,string memory att3,string memory assetType)public handler returns(bool){
         _mint(msg.sender,totalCoins,1, "");
-        tokens[totalCoins] = Tokens(name,att1,att2);
+        tokens[totalCoins] = Tokens(name,att1,att2,assetType);
         totalCoins++;
         return true;
     }
 
     //view token name and price of token to gauge what asset is corelated to the index nuber acociatyed with the asset
-    function viewToken(uint Token)public view  returns(string memory, string memory, string memory) {
-        return (tokens[Token].name, tokens[Token].description, tokens[Token].image);
+    function viewToken(uint Token)public view  returns(string memory, string memory, string memory,string memory) {
+        return (tokens[Token].name, tokens[Token].description, tokens[Token].image, tokens[Token].assetType);
     }
-
+    //if the broker for any reason need to move the asset from an abandond account
+    //they can use the move Asset function 
     function moveAsset(uint Token,address _userA,address _userB)public returns(bool){
         require(balanceOf(_userA, Token) >= 1, "Insufficient balance");
          _burn(_userA, Token, 1);
