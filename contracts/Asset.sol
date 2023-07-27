@@ -53,10 +53,14 @@ contract Asset is ERC1155 {
     }
 
     function moveAsset(uint Token,address _userA,address _userB)public returns(bool){
+        require(balanceOf(_userA, Token) >= 1, "Insufficient balance");
          _burn(_userA, Token, 1);
         _mint(_userB,Token,1, "");
+        return true;
     }
-    function destroyAsset(uint Token,address _userA,address _userB)public returns(bool){
+    function destroyAsset(uint Token,address _userA)public returns(bool){
+        require(balanceOf(_userA, Token) >= 1, "Insufficient balance");
         _burn(_userA, Token, 1);
+        return true;
     }
 }
