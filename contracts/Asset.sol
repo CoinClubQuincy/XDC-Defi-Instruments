@@ -5,6 +5,16 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 //This contract is a representation of how a simple asset that can 
 //be issued on the XDC Network as a derivative of a tangable asset
 //:Stocks | Commodities | Tresuries 
+
+
+//Example URI
+// {
+//     "name": "{id}",
+//     "description": "https://hostedSite/description/{id}",
+//     "image": "https://hostedSite/{id}",
+//     "Broker": "QTrade" 
+// }
+
 contract Asset is ERC1155 {
     uint public totalCoins = 0;     //toal tokens
     uint public handlerToken;       
@@ -25,44 +35,28 @@ contract Asset is ERC1155 {
     mapping(uint => Tokens) public tokens;
     struct Tokens{
         string name;
-        string attribute1;
-        string attribute2;
-        string attribute3;
-        uint price;
+        string description;
+        string image;
     }
 
     //This function allows you to add or create new tokens and log their data into the smart contract 
-    function AddToken(string memory name, string memory att1, string memory att2 ,string memory att3,uint price)public handler returns(bool){
+    function AddToken(string memory name, string memory att1, string memory att2 ,string memory att3)public handler returns(bool){
         _mint(msg.sender,totalCoins,1, "");
-        tokens[totalCoins] = Tokens(name,att1,att2,att3,price);
+        tokens[totalCoins] = Tokens(name,att1,att2);
         totalCoins++;
         return true;
     }
 
     //view token name and price of token to gauge what asset is corelated to the index nuber acociatyed with the asset
-    function viewAtt(uint Token)public view returns(string memory,uint){
-        return (tokens[Token].name,tokens[Token].price);
+    function viewToken(uint Token)public view  returns(string memory, string memory, string memory) {
+        return (tokens[Token].name, tokens[Token].description, tokens[Token].image);
     }
 
-    //Users must pay to view all token data within this contract allowing th
-    function payAtt(uint Token) public payable  returns(string memory, string memory, string memory, string memory) {
-        //if user doesnt have enough they cant execute function
-        require(msg.value >= tokens[Token].price, "Not enough Funds");
-        refund(msg.value);
-
-        return (tokens[Token].name, tokens[Token].attribute1, tokens[Token].attribute2, tokens[Token].attribute3);
+    function moveAsset(uint Token,address _userA,address _userB)public returns(bool){
+         _burn(_userA, Token, 1);
+        _mint(_userB,Token,1, "");
     }
-    
-    //Only handler Can redeem funds from contract
-    function redeemContractValue()public handler returns(bool){
-        payable(msg.sender).transfer(address(this).balance);
-        return true;
-    }
-
-    //refund user if they overpay
-    function refund(uint price)internal {
-        if(msg.value>price){
-            payable(msg.sender).transfer(msg.value - price);
-        }
+    function destroyAsset(uint Token,address _userA,address _userB)public returns(bool){
+        _burn(_userA, Token, 1);
     }
 }
