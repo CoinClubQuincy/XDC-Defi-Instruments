@@ -1,6 +1,7 @@
 const { expect } = require("chai");
 const hre = require("hardhat");
 const { time } = require("@nomicfoundation/hardhat-network-helpers");
+const { ethers } = require("ethers");
 
 describe("Asset", function () {
     let AssetContractAddress;
