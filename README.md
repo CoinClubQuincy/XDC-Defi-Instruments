@@ -17,3 +17,7 @@ This is a repository That contains a set of templates for automated Trade financ
 
 # Futures Contract 
 ![template contracts-5](https://user-images.githubusercontent.com/16103963/228948322-9d968faf-4722-4ab6-b7f2-177222935b7b.png)
+
+
+# Brokerage DApp 
+![Brokerage Dapp](https://github.com/CoinClubQuincy/XDC-Automated-Asset-Management/assets/16103963/8778ee60-eda6-4196-8b09-f7b0304cd3c0)
