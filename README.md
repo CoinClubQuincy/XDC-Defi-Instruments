@@ -20,4 +20,4 @@ This is a repository That contains a set of templates for automated Trade financ
 
 
 # Brokerage DApp 
-![Brokerage Dapp](https://github.com/CoinClubQuincy/XDC-Automated-Asset-Management/assets/16103963/8778ee60-eda6-4196-8b09-f7b0304cd3c0)
+![BrokerageDapp-2](https://github.com/CoinClubQuincy/XDC-Automated-Asset-Management/assets/16103963/524c19c6-7f6b-43b1-a999-84c12b601b3f)
