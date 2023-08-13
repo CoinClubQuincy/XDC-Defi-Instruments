@@ -68,6 +68,8 @@ contract Portfolio is ERC1155{
     portfolioLedger public DAppLedger;
     address private ledgerPrivate;
 
+    event changedMarketPlace(string _newmarketplace);
+
     constructor(string memory _URI,string memory _name,address _DAppLedger,address _marketplace,address user) ERC1155(_URI) {
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(user,handlerToken,1, "");
@@ -86,8 +88,10 @@ contract Portfolio is ERC1155{
         _;
     }
 
-    function BrokerageAdmin(address _user)public returns(bool){
-        //remove token from users address to a new address
+    function changeMarketplace(Marketplace _marketplace) public handler returns(Marketplace){
+        marketplace = _marketplace;
+        emit changedMarketPlace("Marketplace has been changed");
+        return marketplace;
     }
     function sendFunds(string memory _reciver)public payable handler returns(bool){
         bool success = DAppLedger.forwardFunds{value: msg.value}(_reciver);
