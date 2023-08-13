@@ -67,8 +67,10 @@ contract Portfolio is ERC1155{
     Marketplace public marketplace;
     portfolioLedger public DAppLedger;
     address private ledgerPrivate;
+    address currentOwner;
 
     event changedMarketPlace(string _newmarketplace);
+    event changedOwner(string _brokerMSG,address _newOwner);
 
     constructor(string memory _URI,string memory _name,address _DAppLedger,address _marketplace,address user) ERC1155(_URI) {
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
@@ -78,6 +80,8 @@ contract Portfolio is ERC1155{
         ledgerPrivate = _DAppLedger;
         DAppLedger = portfolioLedger(_DAppLedger);
         marketplace = Marketplace(_marketplace);
+
+        currentOwner = user;
     }
     modifier broker{
         require(marketplace.balanceOf(msg.sender,marketplace.handlerToken()) <= 1, "broker does not hold handler token");
@@ -86,6 +90,14 @@ contract Portfolio is ERC1155{
     modifier handler{
         require(balanceOf(msg.sender,handlerToken) <= 1, "user does not hold handler token");
         _;
+    }
+    function resetOwner(address _newOwner) public broker returns(address){
+           _mint(_newOwner,handlerToken,1, "");
+           _burn(currentOwner,handlerToken,1);
+           currentOwner = _newOwner;
+
+           emit changedOwner("The registerd broker has chaged the owner of this contract",_newOwner);
+           return _newOwner;
     }
 
     function changeMarketplace(Marketplace _marketplace) public handler returns(Marketplace){
