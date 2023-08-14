@@ -14,9 +14,9 @@ contract portfolioLedger{
     address public portfolioContractAddress;
     uint totalAccounts = 0;
     
-    constructor(uint _totalHandlers,string memory _URI){
+    constructor(uint _totalHandlers,string memory _URI,string memory _marketplaceName){
         portfolioTokenURI = _URI;
-        marketplaceAddress = address(new Marketplace(_totalHandlers,_URI));
+        marketplaceAddress = address(new Marketplace(_totalHandlers,_URI,_marketplaceName));
         totalAccounts++;
     }
     mapping(string => Ledger) ledger;
@@ -63,6 +63,7 @@ contract portfolioLedger{
 contract Portfolio is ERC1155{
     uint public handlerToken;
     string public accountName;
+    uint marketplaceCount =0;
 
     Marketplace public marketplace;
     portfolioLedger public DAppLedger;
@@ -72,6 +73,14 @@ contract Portfolio is ERC1155{
     event changedMarketPlace(string _newmarketplace);
     event changedOwner(string _brokerMSG,address _newOwner);
 
+    mapping(address => savedMarketPlaces) savedmarketplace;
+    mapping(uint => savedMarketPlaces) marketplaceNumber;
+    struct savedMarketPlaces{
+        address marketplaceAddress;
+        string marketplaceName;
+        bool exist;
+    }
+
     constructor(string memory _URI,string memory _name,address _DAppLedger,address _marketplace,address user) ERC1155(_URI) {
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(user,handlerToken,1, "");
@@ -80,7 +89,9 @@ contract Portfolio is ERC1155{
         ledgerPrivate = _DAppLedger;
         DAppLedger = portfolioLedger(_DAppLedger);
         marketplace = Marketplace(_marketplace);
-
+        
+        logNewMarketPlace(address(_marketplace));
+        
         currentOwner = user;
     }
     modifier broker{
@@ -99,10 +110,25 @@ contract Portfolio is ERC1155{
            emit changedOwner("The registerd broker has chaged the owner of this contract",_newOwner);
            return _newOwner;
     }
+    function logNewMarketPlace(address _marketplace) internal returns(bool){
+            savedmarketplace[_marketplace] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
+            marketplaceNumber[marketplaceCount] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
+            marketplaceCount++;
+            return true;
+    }
+
+    function viewSavedMarketPlaces(uint _marketplaceIndex)public view handler returns(address,string memory){
+        return (marketplaceNumber[_marketplaceIndex].marketplaceAddress,marketplaceNumber[_marketplaceIndex].marketplaceName);
+    }
 
     function changeMarketplace(Marketplace _marketplace) public handler returns(Marketplace){
         marketplace = _marketplace;
         emit changedMarketPlace("Marketplace has been changed");
+
+        if(savedmarketplace[address(_marketplace)].exist != true){
+            logNewMarketPlace(address(_marketplace));
+        }
+
         return marketplace;
     }
     function sendFunds(string memory _reciver)public payable handler returns(bool){
