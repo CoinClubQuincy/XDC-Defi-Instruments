@@ -14,6 +14,7 @@ contract Marketplace is ERC1155{
     using SafeMath for uint256;
 
     uint256 public marketplaceFee = 5;
+    string public marketplaceName;
 
     mapping (uint => address) public recipient;
     mapping (uint => uint) public fee;
@@ -92,9 +93,10 @@ contract Marketplace is ERC1155{
     );
 
     //change to handler token
-    constructor(uint _totalHandlers,string memory _URI) ERC1155(_URI)   {
+    constructor(uint _totalHandlers,string memory _URI,string memory _marketplaceName) ERC1155(_URI)   {
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(msg.sender,handlerToken,_totalHandlers, "");
+        marketplaceName = _marketplaceName;
     }
 
 
