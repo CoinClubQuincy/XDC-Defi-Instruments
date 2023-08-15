@@ -41,7 +41,7 @@ contract Asset is ERC1155 {
     }
 
     //This function allows you to add or create new tokens and log their data into the smart contract 
-    function AddToken(string memory name, string memory att1, string memory att2 ,string memory att3,string memory assetType)public handler returns(bool){
+    function AddToken(string memory name, string memory att1, string memory att2,string memory assetType)public handler returns(bool){
         _mint(msg.sender,totalCoins,1, "");
         tokens[totalCoins] = Tokens(name,att1,att2,assetType);
         totalCoins++;

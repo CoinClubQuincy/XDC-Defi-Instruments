@@ -11,7 +11,6 @@ contract portfolioLedger{
     string portfolioTokenURI;   //URI formart for users
     address marketplaceAddress; //address of marketplace Contract
 
-    address public portfolioContractAddress;
     uint totalAccounts = 0;
     
     constructor(uint _totalHandlers,string memory _URI,string memory _marketplaceName){
@@ -34,6 +33,8 @@ contract portfolioLedger{
     }
     //Create new User Account
     function createAccount(string memory _account)public returns(string memory,address){
+        require(ledger[_account].exist == false, "account already exist");
+        address portfolioContractAddress; 
         portfolioContractAddress = address(new Portfolio(portfolioTokenURI,_account,address(this),marketplaceAddress,msg.sender));
         ledger[_account] = Ledger(_account,totalAccounts,portfolioContractAddress,true);
         numbLedger[totalAccounts] = numberLedger(_account,portfolioContractAddress,true);
@@ -95,11 +96,11 @@ contract Portfolio is ERC1155{
         currentOwner = user;
     }
     modifier broker{
-        require(marketplace.balanceOf(msg.sender,marketplace.handlerToken()) <= 1, "broker does not hold handler token");
+        require(marketplace.balanceOf(msg.sender,marketplace.handlerToken()) >= 1, "broker does not hold handler token");
         _;
     }
     modifier handler{
-        require(balanceOf(msg.sender,handlerToken) <= 1, "user does not hold handler token");
+        require(balanceOf(msg.sender,handlerToken) >= 1, "user does not hold handler token");
         _;
     }
     function resetOwner(address _newOwner) public broker returns(address){
@@ -111,14 +112,27 @@ contract Portfolio is ERC1155{
            return _newOwner;
     }
     function logNewMarketPlace(address _marketplace) internal returns(bool){
+            require(savedmarketplace[_marketplace].exist == false, "Markeplace already exist");
             savedmarketplace[_marketplace] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
             marketplaceNumber[marketplaceCount] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
             marketplaceCount++;
             return true;
     }
+    function saveMarketplace(address _marketplace)public handler returns(bool){
+        logNewMarketPlace(_marketplace);
+        return true;
+    }
 
-    function viewSavedMarketPlaces(uint _marketplaceIndex)public view handler returns(address,string memory){
-        return (marketplaceNumber[_marketplaceIndex].marketplaceAddress,marketplaceNumber[_marketplaceIndex].marketplaceName);
+    function deleteMarketplace(uint _marketplaceIndex)public handler returns(bool){
+        require(savedmarketplace[marketplaceNumber[_marketplaceIndex].marketplaceAddress].exist == false, "Markeplace already exist");
+        savedmarketplace[marketplaceNumber[_marketplaceIndex].marketplaceAddress] = savedMarketPlaces(0x0000000000000000000000000000000000000000,"removed",false);
+        marketplaceNumber[_marketplaceIndex] = savedMarketPlaces(0x0000000000000000000000000000000000000000,"removed",false);
+        marketplaceCount--;
+        return true;
+    }
+
+    function viewSavedMarketPlaces(uint _marketplaceIndex)public view handler returns(address,string memory,uint){
+        return (marketplaceNumber[_marketplaceIndex].marketplaceAddress,marketplaceNumber[_marketplaceIndex].marketplaceName,_marketplaceIndex);
     }
 
     function changeMarketplace(Marketplace _marketplace) public handler returns(Marketplace){

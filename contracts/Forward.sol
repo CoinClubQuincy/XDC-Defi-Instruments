@@ -62,6 +62,7 @@ contract Forward is ERC1155 {
         Asset = ASSET(AssetTokenAddress);
         Asset.safeTransferFrom(msg.sender,address(this),_Tokens, 1, "");
         activated = true;
+        return true;
     }
     // create sales function to but contract 
     function buyForwardsToken()public payable  bought activate returns(bool){
@@ -78,6 +79,7 @@ contract Forward is ERC1155 {
     }
     function redeemContractValue()public Handler returns(bool){
         payable(msg.sender).transfer(address(this).balance);
+        return true;
     }
     function refund()internal {
         if(msg.value>price){
