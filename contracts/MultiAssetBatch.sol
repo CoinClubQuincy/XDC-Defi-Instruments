@@ -1,4 +1,4 @@
-//SPDX-License-Identifier: UNLICENSED
+//SPDX-License-Identifier: MIT
 
 pragma solidity ^0.8.9;
 
@@ -6,8 +6,14 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
+/// @title Multi Asset Batch Contract
+/// @author Quincy J
+/// @notice This contract is meant to allow a multitude of different 
+//          assets from different contracts to be referenced by a single token
+/// @dev This contract is built to allow for more complex contracts to only have to manage 
+///      a single token rather than a complex multitude of different tokens
 
-abstract contract MultiAssetBatch is ERC1155{
+contract MultiAssetBatch is ERC1155{
     uint public handlerToken;
     string public batchName;
     uint public assetIDCount = 0;
@@ -35,21 +41,35 @@ abstract contract MultiAssetBatch is ERC1155{
         require(balanceOf(msg.sender,handlerToken) >= 1, "user does not hold handler token");
         _;
     }
+    
     function addAssets(address _contract,string memory _assetName,uint[] memory _id,uint[] memory _amount)public handler returns(string memory,bool){
         require(assetIDCount <= maxBatchSize,"Contract has hit Max Batch limit");
         require(_id.length ==_amount.length ,"both the token id and the ammount arrays must have the same length");
+        
         ERC1155 tokenContract = ERC1155(_contract);
+
         if(assetContract[_contract].exist == false){
             assetContract[_contract] = Assets(_contract,_assetName,_amount,_id,assetIDCount,true);
             assetID[assetIDCount] = Assets(_contract,_assetName,_amount,_id,assetIDCount,true);
             assetIDCount++;
 
-            for(uint i;i<= _id.length;i++){
+            for(uint i =0;i<= _id.length;i++){
                 require(tokenContract.balanceOf(msg.sender,_id[i]) >= 1,"user is missing a token");
             }
-            
+
             tokenContract.safeBatchTransferFrom(msg.sender, address(this), _id, _amount, "");
             return ("new asset added",true);
+
+        }else if(assetContract[_contract].exist == true && _id.length != 0 && _amount.length != 0 && _amount.length == _id.length){
+            for(uint256 i = 0; i < _id.length; i++){
+                assetContract[_contract].assetID.push(_id[i]);
+                assetContract[_contract].amount.push(_amount[i]);
+
+                assetID[assetContract[_contract].count].assetID.push(_id[i]);
+                assetID[assetContract[_contract].count].amount.push(_amount[i]);
+
+            }
+            return ("Assets Added",true);
         } else {
             return ("asset already exist",false);
         }
