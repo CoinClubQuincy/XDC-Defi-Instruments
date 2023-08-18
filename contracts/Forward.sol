@@ -11,7 +11,13 @@ contract ASSET is ERC1155 {
         constructor() ERC1155("https://thisissomeMetaData/{id}.json") {
     }
 } 
-//Smart contract
+
+
+/// @title Forwards Contract
+/// @author R Quincy Jones
+/// @notice This is an automated forwards contract
+/// @dev This contract can be used with ERC1150 tokens 
+
 contract Forward is ERC1155 {
     uint256 public constant forwardToken = 0;
     uint256 public handlerToken;

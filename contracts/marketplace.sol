@@ -6,6 +6,11 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
+/// @title 1155 Marketplace
+/// @author R Quincy Jones
+/// @notice This contract is a for from https://github.com/TronzitVeca/ERC1155-Marketplace-Contract that acts as a token marketplace
+/// @dev This contract works with the profile contract
+
 contract Marketplace is ERC1155{
 
     using SafeMath for uint256;

@@ -7,6 +7,12 @@ import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 import "./marketplace.sol";
 
+
+/// @title Marketplace Portfolio
+/// @author R Qiuincy Jones
+/// @notice This is a portfolio contract that allows a single contract to custody assets from the 1155 marketplace
+/// @dev this contravct works well with the 1155 marketplace contract
+
 contract portfolioLedger{
     string portfolioTokenURI;   //URI formart for users
     address marketplaceAddress; //address of marketplace Contract

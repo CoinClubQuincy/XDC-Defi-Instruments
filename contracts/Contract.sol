@@ -1,7 +1,12 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-//Smart contract
+
+/// @title Contract
+/// @author R Quincy Jones
+/// @notice This contract Illistrates how 2 parties can sign an agreement withina smart contract
+/// @dev Simple contract meant to be used to sign documents
+
 contract Contract is ERC1155 {
     uint256 public constant PartyA = 0;
     uint256 public constant PartyB = 1;

@@ -7,6 +7,11 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 //:Stocks | Commodities | Tresuries 
 
 
+/// @title Generic Assets Contract
+/// @author R Quincy Jones
+/// @notice This is a generic rendition of a token that could represented in the traditional markets
+/// @dev Simple test token
+
 //Example URI
 // {
 //     "name": "{id}",
