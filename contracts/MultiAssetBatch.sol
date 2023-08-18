@@ -16,14 +16,14 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 contract MultiAssetBatch is ERC1155{
     uint public handlerToken;
     string public batchName;
-    uint public TokenIDNumber = 0;
-    uint public maxBatchSize;
+    uint public tokenIDNumber = 0;
+    uint public maxBatchSize; //50-100 recomended
 
     constructor(uint _totalHandlers,string memory _URI,string memory _batchName,uint _maxBatchSize) ERC1155(_URI)   {
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(msg.sender,handlerToken,_totalHandlers, "");
         batchName = _batchName;
-        maxBatchSize = _maxBatchSize; //50-100 recomended
+        maxBatchSize = _maxBatchSize; 
     }
 
     mapping(uint => Assets) assetID;
@@ -43,15 +43,15 @@ contract MultiAssetBatch is ERC1155{
     }
     
     function addAssets(address _contract,string memory _assetName,uint[] memory _id,uint[] memory _amount)public handler returns(string memory,bool){
-        require(TokenIDNumber <= maxBatchSize,"Contract has hit Max Batch limit");
+        require(tokenIDNumber <= maxBatchSize,"Contract has hit Max Batch limit");
         require(_id.length ==_amount.length ,"both the token id and the ammount arrays must have the same length");
         
         ERC1155 tokenContract = ERC1155(_contract);
 
         if(assetContract[_contract].exist == false){
-            assetContract[_contract] = Assets(_contract,_assetName,_amount,_id,TokenIDNumber,true);
-            assetID[TokenIDNumber] = Assets(_contract,_assetName,_amount,_id,TokenIDNumber,true);
-            TokenIDNumber++;
+            assetContract[_contract] = Assets(_contract,_assetName,_amount,_id,tokenIDNumber,true);
+            assetID[tokenIDNumber] = Assets(_contract,_assetName,_amount,_id,tokenIDNumber,true);
+            tokenIDNumber++;
 
             for(uint i =0;i<= _id.length;i++){
                 require(tokenContract.balanceOf(msg.sender,_id[i]) >= 1,"user is missing a token");
@@ -77,15 +77,15 @@ contract MultiAssetBatch is ERC1155{
     }
 
     function redeemAssets()public handler returns(bool){
-        for(uint i; i <= TokenIDNumber;i++){
+        for(uint i; i <= tokenIDNumber;i++){
             ERC1155 tokenContract = ERC1155(assetID[i].assetContract);
             tokenContract.safeBatchTransferFrom(address(this),msg.sender, assetID[i].assetID, assetID[i].amount, "");
         }
         return true;
     }
 
-    function viewAssets(uint _TokenIDNumber)public  view returns(address,string memory,uint[] memory,uint[] memory,uint,bool){
-        return (assetID[_TokenIDNumber].assetContract,assetID[_TokenIDNumber].assetName,assetID[_TokenIDNumber].amount,assetID[_TokenIDNumber].assetID,assetID[_TokenIDNumber].count,assetID[_TokenIDNumber].exist);
+    function viewAssets(uint _tokenIDNumber)public  view returns(address,string memory,uint[] memory,uint[] memory,uint,bool){
+        return (assetID[_tokenIDNumber].assetContract,assetID[_tokenIDNumber].assetName,assetID[_tokenIDNumber].amount,assetID[_tokenIDNumber].assetID,assetID[_tokenIDNumber].count,assetID[_tokenIDNumber].exist);
     }
 
     //ERC1155Received fuctions
