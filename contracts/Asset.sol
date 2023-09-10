@@ -32,7 +32,7 @@ contract Asset is ERC1155 {
     //The Handler function allows the holder of the handler token to allows the owner of the contract create more assets 
     // As well as allows only the handler to redeem value from the contract
     modifier handler(){
-        require(balanceOf(msg.sender,handlerToken) == 1, "user does not hold handlerToken");
+        require(balanceOf(msg.sender,handlerToken) >= 1, "user does not hold handlerToken");
         _;
     }
 
