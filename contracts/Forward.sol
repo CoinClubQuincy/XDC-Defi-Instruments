@@ -102,4 +102,7 @@ contract Forward is ERC1155 {
     function onERC721Received(address, address, uint256, bytes memory) public virtual returns (bytes4) {
         return this.onERC721Received.selector;
     }
+
+    fallback() external payable {}
+    receive() external payable {} 
 }

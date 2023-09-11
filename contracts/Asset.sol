@@ -57,6 +57,7 @@ contract Asset is ERC1155 {
     function viewToken(uint Token)public view  returns(string memory, string memory, string memory,string memory) {
         return (tokens[Token].name, tokens[Token].description, tokens[Token].image, tokens[Token].assetType);
     }
+
     //if the broker for any reason need to move the asset from an abandond account
     //they can use the move Asset function 
     function moveAsset(uint Token,address _userA,address _userB)public handler returns(bool){
@@ -65,9 +66,13 @@ contract Asset is ERC1155 {
         _mint(_userB,Token,1, "");
         return true;
     }
+
     function destroyAsset(uint Token,address _userA)public handler returns(bool){
         require(balanceOf(_userA, Token) >= 1, "Insufficient balance");
         _burn(_userA, Token, 1);
         return true;
     }
+
+    fallback() external payable {}
+    receive() external payable {} 
 }

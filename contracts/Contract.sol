@@ -78,4 +78,7 @@ contract Contract is ERC1155 {
         }
         return (false, "error user does not hold token to authorize this call");
     }
+    
+    fallback() external payable {}
+    receive() external payable {} 
 }

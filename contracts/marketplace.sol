@@ -713,6 +713,7 @@ contract Marketplace is ERC1155{
         _;
     }
 
-
+    fallback() external payable {}
+    receive() external payable {} 
 
 }

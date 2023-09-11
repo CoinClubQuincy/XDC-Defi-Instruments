@@ -221,4 +221,7 @@ contract Portfolio is ERC1155{
         marketplace.claimAuction(_auctionId);
         return true;
     }
+
+    fallback() external payable {}
+    receive() external payable {} 
 }
