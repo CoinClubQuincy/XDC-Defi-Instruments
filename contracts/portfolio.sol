@@ -95,7 +95,7 @@ contract Portfolio is ERC1155{
         accountName = _name;
         ledgerPrivate = _DAppLedger;
         DAppLedger = portfolioLedger(_DAppLedger);
-        marketplace = Marketplace(_marketplace);
+        marketplace = Marketplace(payable (_marketplace));
         
         logNewMarketPlace(address(_marketplace));
         
