@@ -63,10 +63,29 @@ contract DelegateExecutor is ERC1155{
         return true;
     }
 
+    function changePass(string memory _oldPass,string memory _newPass)public Handler returns(bool){
+        require(pass == uint(keccak256(abi.encodePacked(_oldPass))),"incorect Password");
+        pass = uint(keccak256(abi.encodePacked(_newPass)));
+        return true;
+    }
+
     function delegateCall(address _contract,string memory _function, uint[] memory _call) public payable returns(bool,bytes memory){
         (bool success, bytes memory data) = _contract.delegatecall(abi.encodeWithSignature(_function, _call));
         return (success,data);
     }
+
+
+    //ERC1155Received fuctions
+    function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory) public virtual returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
+    }
+    function onERC721Received(address, address, uint256, bytes memory) public virtual returns (bytes4) {
+        return this.onERC721Received.selector;
+    }
+
 
     fallback() external payable {}
     receive() external payable {} 
