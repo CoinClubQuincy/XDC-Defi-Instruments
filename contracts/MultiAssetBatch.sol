@@ -8,10 +8,8 @@ import "@openzeppelin/contracts/utils/math/SafeMath.sol";
 
 /// @title Multi Asset Batch Contract
 /// @author Quincy J
-/// @notice This contract is meant to allow a multitude of different 
-//          assets from different contracts to be referenced by a single token
-/// @dev This contract is built to allow for more complex contracts to only have to manage 
-///      a single token rather than a complex multitude of different tokens
+/// @notice This contract is meant to allow a multitude of different assets from different contracts to be referenced by a single token
+/// @dev This contract is built to allow for more complex contracts to only have to manage  a single token rather than a complex multitude of different tokens
 
 contract MultiAssetBatch is ERC1155{
     uint public handlerToken;
@@ -19,7 +17,7 @@ contract MultiAssetBatch is ERC1155{
     uint public tokenIDNumber = 0;
     uint public maxBatchSize; //50-100 recomended
 
-    constructor(uint _totalHandlers,string memory _URI,string memory _batchName,uint _maxBatchSize) ERC1155(_URI)   {
+    constructor(uint _totalHandlers,string memory _URI,string memory _batchName,uint _maxBatchSize) ERC1155(_URI) {
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(msg.sender,handlerToken,_totalHandlers, "");
         batchName = _batchName;
@@ -98,4 +96,7 @@ contract MultiAssetBatch is ERC1155{
     function onERC721Received(address, address, uint256, bytes memory) public virtual returns (bytes4) {
         return this.onERC721Received.selector;
     }
+
+    fallback() external payable {}
+    receive() external payable {} 
 }
