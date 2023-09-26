@@ -18,11 +18,13 @@ contract Contract is ERC1155 {
     address PartyASignature;
     address PartyBSignature;
     uint public total_Counter_Proposals =0;
+    string public name;
 
     bool public contractComplete = false;
     //Create 2 tokens for Party A-B
-    constructor(string memory _DocumentHash, string memory _URI) ERC1155(_URI) {
+    constructor(string memory _DocumentHash,string memory _name, string memory _URI) ERC1155(_URI) {
         DocumentHash = _DocumentHash;
+        name = _name;
         _mint(msg.sender,PartyA,1, "");
         _mint(msg.sender,PartyB,1, "");
     }
@@ -81,4 +83,12 @@ contract Contract is ERC1155 {
     
     fallback() external payable {}
     receive() external payable {} 
+}
+
+contract ContractDeployer {
+    function deployContract(string memory _DocumentHash,string memory _name, string memory _URI) public returns(address){
+        address contractAddress; 
+        contractAddress = address(new Contract(_DocumentHash,_name, _URI));
+        return (contractAddress);
+    }
 }
