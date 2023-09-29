@@ -14,17 +14,26 @@ tokenID = [0]
 
 private_key = "this is suposed to be a word key"
 
-w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
 
-def Send():
-    print("send %s %s to %s", (amount,network,sendTo))
-    #web3.eth.send_transaction(sendTo,,amount)
 
-def SendXRC20():
-    print("sendXRC20 %s %s to %s", (amount,network,sendTo))
+class NetworkTXNs()
 
-def SendXRC1155():
-    print("sendXRC1155 %s %s to %s", (amount,network,sendTo))
+    init():
+        w3 = Web3(Web3.HTTPProvider('http://127.0.0.1:8545'))
+
+
+    def Send():
+        print("send %s %s to %s", (amount,network,sendTo))
+        #web3.eth.send_transaction(sendTo,,amount)
+
+    def SendXRC20():
+        print("sendXRC20 %s %s to %s", (amount,network,sendTo))
+
+    def SendXRC1155():
+        print("sendXRC1155 %s %s to %s", (amount,network,sendTo))
+
+    def ExecuteContract():
+        print("sendXRC1155 %s %s to %s", (amount,network,sendTo))
 
 if __name__ == "__main__" :
     print("start program")

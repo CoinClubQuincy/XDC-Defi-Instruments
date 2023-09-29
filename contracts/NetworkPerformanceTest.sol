@@ -22,8 +22,8 @@ contract GenerateRandomStats {
     }
     //generates a number thats "random enough"
     function randomStats(uint _entrapy, uint _multiplier) public view returns(uint){ 
-        uint256 seed = uint256(keccak256(abi.encodePacked( block.timestamp + block.prevrandao +
-        ((uint256(keccak256(abi.encodePacked(block.coinbase)))) / (block.prevrandao)) +
+        uint256 seed = uint256(keccak256(abi.encodePacked( block.timestamp + block.number +
+        ((uint256(keccak256(abi.encodePacked(block.coinbase)))) / (block.number)) +
         block.gaslimit + 
         ((uint256(keccak256(abi.encodePacked(msg.sender)))) / (block.timestamp)) +
         block.number + _entrapy)));
