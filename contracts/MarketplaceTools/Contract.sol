@@ -78,10 +78,11 @@ contract Contract is ERC1155 {
             emit proposal(" A proposal has been made by: ", msg.sender);
             return (true, "Party has signed Document");
         }
-        if(PartyASignature != address(0) && PartyBSignature != address(0) ){
-            return (true, "only one party  has signed");
+        if(PartyASignature != address(0) || PartyBSignature != address(0) ){
+            return (false, "contract not completed");
+        } else {
+            return (true, "Contract completed");
         }
-        return (false, "error user does not hold token to authorize this call");
     }
     
     fallback() external payable {}

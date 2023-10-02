@@ -1,0 +1,19 @@
+[
+    {
+        "type": "Wallet",
+        "call": {
+            "address": "123 Main Street",
+            "city": "Anytown",
+            "state": "CA",
+            "zipcode": "12345"
+        },
+
+        "type": "Contract",
+        "call": {
+            "CIML": "",
+            "city": "Anytown",
+            "state": "CA",
+            "zipcode": "12345"
+        }
+    }
+]
