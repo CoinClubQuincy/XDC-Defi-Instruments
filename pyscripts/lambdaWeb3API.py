@@ -22,7 +22,7 @@ class executeWeb3:
         print(balance)
         return balance
 
-    def send(amount,network,sendTo):
+    def send(self,amount,network,sendTo):
         w3.send(self)
         print("send %s %s to %s", (amount,network,sendTo))
         #web3.eth.send_transaction(sendTo,,amount)
@@ -50,7 +50,6 @@ class executeWeb3:
     def call(self,url):
         address, abi = getCIML(url)
         contract = w3.eth.contract(address=address, abi=abi)
-
         ##contract calls
 
         print("call Address: %s ABI: %s to %s", (address,abi))

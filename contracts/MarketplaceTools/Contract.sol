@@ -15,12 +15,15 @@ contract Contract is ERC1155 {
     uint256 public constant witnessB = 3;
 
     string public DocumentHash = "";
-    address PartyASignature;
-    address PartyBSignature;
+    address public PartyASignature;
+    address public PartyBSignature;
+
     uint public total_Counter_Proposals =0;
     string public name;
 
     bool public contractComplete = false;
+
+    event proposal(string,address);
     //Create 2 tokens for Party A-B
     constructor(string memory _DocumentHash,string memory _name, string memory _URI) ERC1155(_URI) {
         DocumentHash = _DocumentHash;
@@ -48,11 +51,8 @@ contract Contract is ERC1155 {
 
     //this function will compare any data of hash to see if it matches the DocumentHash
     function verify(string memory _DocumentHash)public view returns(bool){
-        if(keccak256(abi.encodePacked(_DocumentHash)) == keccak256(abi.encodePacked(DocumentHash)) ){
-            return true;
-        } else {
-            return false;
-        }
+        require(keccak256(abi.encodePacked(_DocumentHash)) == keccak256(abi.encodePacked(DocumentHash)), "Hashes do not match" );
+        return true;
     }
     // Party A or party B can make a counter proposal and  reassign the hash
     function counter_proposal_A(string memory _DocumentHash)public  PartyA_Sign returns(bool){
@@ -69,13 +69,16 @@ contract Contract is ERC1155 {
     function sign_proposal()public contractSigned returns(bool,string memory){
         if(balanceOf(msg.sender,PartyA) == 1){
             PartyASignature = msg.sender;
-            return (true, "Party A has signed Document");
+            contractComplete = true;
+            emit proposal(" A proposal has been made by: ", msg.sender);
+            return (true, "Party has signed Document");
         } else if(balanceOf(msg.sender,PartyB) ==1 ){
             PartyBSignature = msg.sender;
-            return (true, "Party A has signed Document");
+            contractComplete = true;
+            emit proposal(" A proposal has been made by: ", msg.sender);
+            return (true, "Party has signed Document");
         }
         if(PartyASignature != address(0) && PartyBSignature != address(0) ){
-            contractComplete = true;
             return (true, "only one party  has signed");
         }
         return (false, "error user does not hold token to authorize this call");
