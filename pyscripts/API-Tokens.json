@@ -1,19 +1,76 @@
 [
     {
-        "type": "Wallet",
+        "type": "View",
         "call": {
-            "address": "123 Main Street",
-            "city": "Anytown",
-            "state": "CA",
-            "zipcode": "12345"
-        },
-
+            "address": "0x0000000000000000000000000000000000000000", 
+            "tokens": [],
+            "id": []
+        }
+    },
+    {
+        "type": "Send",
+        "call": {
+            "asset": "XDC", 
+            "send_to": "0x0000000000000000000000000000000000000000",
+            "amount": [100],
+            "id": []
+        }
+    },
+    {
         "type": "Contract",
         "call": {
-            "CIML": "",
-            "city": "Anytown",
-            "state": "CA",
-            "zipcode": "12345"
+            "CIML": "name",
+            "function": "func()",
+            "call": ["execute",true]
+        }
+    }
+]
+
+[
+    {
+        "type":"View",
+        "return":{
+            "balanceOf": [
+                {
+                "asset": "XDC",
+                "amount": "160.4234",
+                "address": "address"
+                },
+                {
+                    "asset": "GLD",
+                    "amount": "1000",
+                    "address": "address"
+                }
+            ],
+            "output": [200]
+        }
+    },
+    {
+        "type":"Send",
+        "return":{
+            "balanceOf": [
+            {
+                "asset": "XDC",
+                "amount": ["100"],
+                "id": []
+            }
+            ],
+            "output": [200]
+        }
+    },
+    {
+        "type":"Contract",
+        "return":{
+            "CIML": "name",
+            "function": "func()",
+            "output": ["msg"]
+        }
+    },
+    {
+        "type" : "Error",
+        "return":{
+            "error_code" : 001,
+            "error_msg" : "default error"
         }
     }
 ]
