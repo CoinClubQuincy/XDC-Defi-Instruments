@@ -1,0 +1,15 @@
+
+[
+    {
+        "network": "XDC",
+        "symbol": "XDC",
+        "rpc": "Https://rpc.XDC.org"
+    },
+    {
+        "network": "localhost",
+        "symbol": "USD",
+        "rpc": "HTTP://127.0.0.1:8545"
+    }
+]
+
+
