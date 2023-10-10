@@ -42,6 +42,31 @@ class executeWeb3:
     {"anonymous": False,"inputs": [{"indexed": True,"name": "operator","type": "address"},{"indexed": True,"name": "from","type": "address"},{"indexed": True,"name": "to","type": "address"},{"indexed": False,"name": "ids","type": "uint256[]"},{"indexed": False,"name": "amounts","type": "uint256[]"}],"name": "TransferBatch","type": "event"},
     {"anonymous": False,"inputs": [{"indexed": True,"name": "owner","type": "address"},{"indexed": True,"name": "operator","type": "address"},{"indexed": False,"name": "approved","type": "bool"}],"name": "ApprovalForAll","type": "event"}
     ]
+    erc721_contract_abi = [
+    {"constant": True,"inputs": [],"name": "name","outputs": [{"name": "","type": "string"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [],"name": "symbol","outputs": [{"name": "","type": "string"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_tokenId","type": "uint256"}],"name": "ownerOf","outputs": [{"name": "owner","type": "address"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_tokenId","type": "uint256"}],"name": "exists","outputs": [{"name": "","type": "bool"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_owner","type": "address"}],"name": "balanceOf","outputs": [{"name": "balance","type": "uint256"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_to","type": "address"},{"name": "_tokenId","type": "uint256"}],"name": "transferFrom","outputs": [],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_to","type": "address"},{"name": "_tokenId","type": "uint256"},{"name": "_data","type": "bytes"}],"name": "safeTransferFrom","outputs": [],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_to","type": "address"},{"name": "_tokenId","type": "uint256"},{"name": "_data","type": "bytes"},{"name": "_operator","type": "address"}],"name": "safeTransferFrom","outputs": [],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [],"name": "totalSupply","outputs": [{"name": "","type": "uint256"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_owner","type": "address"},{"name": "_index","type": "uint256"}],"name": "tokenOfOwnerByIndex","outputs": [{"name": "","type": "uint256"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_index","type": "uint256"}],"name": "tokenByIndex","outputs": [{"name": "","type": "uint256"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_to","type": "address"},{"name": "_tokenId","type": "uint256"}],"name": "approve","outputs": [],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_tokenId","type": "uint256"}],"name": "getApproved","outputs": [{"name": "operator","type": "address"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_tokenId","type": "uint256"}],"name": "isApprovedForAll","outputs": [{"name": "approved","type": "bool"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_operator","type": "address"},{"name": "_approved","type": "bool"}],"name": "setApprovalForAll","outputs": [],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_tokenId","type": "uint256"}],"name": "tokenURI","outputs": [{"name": "","type": "string"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [],"name": "supportsInterface","outputs": [{"name": "","type": "bool"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_from","type": "address"},{"name": "_to","type": "address"},{"name": "_tokenId","type": "uint256"},{"name": "_data","type": "bytes"}],"name": "safeTransferFrom","outputs": [],"payable": False,"type": "function"},
+    {"inputs": [{"name": "_name","type": "string"},{"name": "_symbol","type": "string"}],"type": "constructor"},
+    {"anonymous": False,"inputs": [{"indexed": True,"name": "_from","type": "address"},{"indexed": True,"name": "_to","type": "address"},{"indexed": True,"name": "_tokenId","type": "uint256"}],"name": "Transfer","type": "event"},
+    {"anonymous": False,"inputs": [{"indexed": True,"name": "_owner","type": "address"},{"indexed": True,"name": "_approved","type": "address"},{"indexed": True,"name": "_tokenId","type": "uint256"}],"name": "Approval","type": "event"},
+    {"anonymous": False,"inputs": [{"indexed": True,"name": "_owner","type": "address"},{"indexed": True,"name": "_operator","type": "address"},{"indexed": False,"name": "_approved","type": "bool"}],"name": "ApprovalForAll","type": "event"}
+    ]
+
 
     def __init__(self,_network,_sender_address):
         network = _network
@@ -123,6 +148,7 @@ class executeWeb3:
         balance = erc20_contract.functions.balanceOf(address_to_check).call() / 10**decimals
         return (name,symbol,balance,decimals)
 
+#####################################
     def sendERC1155(self, erc1155_contract_address, token_id, amount, receiver_address, private_key):
         erc1155_contract = self.w3.eth.contract(address=erc1155_contract_address, abi=self.erc1155_contract_abi)
         sender_address = self.w3.eth.account.from_key(private_key).address
@@ -200,7 +226,7 @@ class executeWeb3:
         print(f"Balance of Token ID {token_id} for {address_to_check}: {balance}")
         return balance
 
-#####################################
+
     def call_contract_function(url,function_name, function_params,seed):
         aws = AWS()
         contract_address, contract_abi = aws.getCIML(url)
