@@ -112,7 +112,7 @@ class executeWeb3:
         tx_hash = self.w3.eth.send_transaction(transaction)
 
         tx = w3.eth.get_transaction(tx_hash)
-        return tx_hash
+        return tx_hash.hex()
 
     def sendXRC20(self, erc20_contract_address, amount, receiver_address, private_key):
         erc20_contract = self.w3.eth.contract(address=erc20_contract_address, abi=self.erc20_contract_abi)
@@ -129,7 +129,7 @@ class executeWeb3:
             private_key=private_key,
         )
         tx_hash = self.w3.eth.send_raw_transaction(signed_transaction.rawTransaction)
-        self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        #self.w3.eth.wait_for_transaction_receipt(tx_hash)
 
         return tx_hash.hex()
 
@@ -148,8 +148,8 @@ class executeWeb3:
     def sendERC1155(self, erc1155_contract_address, token_id, amount, receiver_address, private_key):
         erc1155_contract = self.w3.eth.contract(address=erc1155_contract_address, abi=self.erc1155_contract_abi)
         sender_address = self.w3.eth.account.from_key(private_key).address
-
-        transaction = erc1155_contract.functions.safeBatchTransferFrom(sender_address, receiver_address, [token_id], [amount], b'')
+        print("check")
+        transaction = erc1155_contract.functions.safeBatchTransferFrom(sender_address, receiver_address, token_id, amount, b'')
 
         transaction_dict = {
             'gas': 200000,
@@ -164,7 +164,6 @@ class executeWeb3:
         
         tx_hash = self.w3.eth.send_raw_transaction(signed_transaction.rawTransaction)
         self.w3.eth.wait_for_transaction_receipt(tx_hash)
-
         return tx_hash.hex()
 
 
@@ -223,8 +222,6 @@ class executeWeb3:
             'nonce': self.w3.eth.get_transaction_count(key.address),
         })
         print("check 4")
-        
-        # Extract the private key as a hexadecimal string
         private_key_hex = key.key.hex()
         
         signed_transaction = self.w3.eth.account.sign_transaction(data, private_key=private_key_hex)
@@ -257,7 +254,7 @@ class parseJSON:
             obj_type = obj.get("type")
             obj_call = obj.get("call")
 
-            if obj_type == "View":
+            if obj_type == "Read":
                 address = obj_call.get("address", "")
                 tokens = obj_call.get("tokens", [])
                 nft = obj_call.get("nft", [])
@@ -270,11 +267,12 @@ class parseJSON:
                 id_list = obj_call.get("id", [])
                 sends.append({"asset": asset, "send_to": send_to, "amount": amount, "id": id_list})
 
-            elif obj_type == "Contract":
-                ciml = obj_call.get("CIML", "")
+            elif obj_type == "Write":
+                address = obj_call.get("address", "")
+                abi = obj_call.get("abi", "")
                 function = obj_call.get("function", "")
                 call_list = obj_call.get("call", [])
-                contracts.append({"CIML": ciml, "function": function, "call": call_list})
+                contracts.append({"address": address,"abi": abi,"function": function, "call": call_list})
 
         return views, sends, contracts
 
@@ -394,7 +392,6 @@ class executeAPI:
                 token_details_list.append(token_details)    
 
             elif(asset != "0x0000000000000000000000000000000000000000" and self.is_erc1155_contract(asset) != True and self.is_erc721_contract(asset) != True ):
-                print("trigger XRC20send")
                 txhash = exe.sendXRC20(asset,amount[0],send_to,privateKey)
                 token_details = {
                     "txn_hash": txhash,
@@ -404,11 +401,10 @@ class executeAPI:
                 token_details_list.append(token_details)  
 
             elif(self.is_erc1155_contract(asset) == True):
-                print("trigger XRC1155send")
-                txhash = exe.sendXRC1155(asset[0], ids[0], amount, send_to, privateKey)
+                txhash = exe.sendERC1155(asset, ids, amount, send_to, privateKey)
                 token_details = {
                     "txn_hash": txhash,
-                    "amount": amount[0],
+                    "amount": amount,
                     "asset": asset
                 }
                 token_details_list.append(token_details)  
@@ -443,9 +439,24 @@ class executeAPI:
         return jsonObj
 
     def executeContracts(self,contracts,network):
-        CIML = views['CIML']
+        abi = views['abi']
+        address = views['address']
         function = views['function']
         call = views['call']
+        token_details_list = []
+        try:
+            output = exe.call_contract_function( contract_address, contract_abi, function, call,privateKey)
+            token_details = {
+                "output": output,
+                "contract": contract_address
+            }
+            token_details_list.append(token_details)    
+        except Exception as e:
+            token_details = {
+                "output": "error",
+                "contract": contract_address
+            }
+            token_details_list.append(token_details)  
 
     def is_erc20_contract(self,address):
         try:
