@@ -6,6 +6,11 @@
         "rpc": "Https://rpc.XDC.org"
     },
     {
+        "network": "XDC_Apothem",
+        "symbol": "aXDC",
+        "rpc": "https://apothem.xdcrpc.com"
+    },
+    {
         "network": "localhost",
         "symbol": "USD",
         "rpc": "HTTP://127.0.0.1:8545"
