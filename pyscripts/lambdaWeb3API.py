@@ -6,13 +6,21 @@ from web3.middleware import construct_sign_and_send_raw_middleware
 from eth_account import Account
 import os
 
-class localSeedStorageTest:
-    def create_user(address,seed,index):
+class LocalSeedStorageTest:
+    users = []
+    def create_user(self, address, seed, index):
+        existing_user = next((user for user in self.users if user["address"] == address), None)
+        if existing_user:
+            self.users.remove(existing_user)
+
         user = {
             "address": address,
             "seed": seed,
-            "index": [],
+            "index": index,
         }
+
+        self.users.append(user)
+        return 
 
 class executeWeb3:
     w3 = None
@@ -216,6 +224,8 @@ class executeWeb3:
         
         #result = contract_function(*function_params).call()
         #self.w3.eth.wait_for_transaction_receipt(transaction_hash)
+        print("final check")
+        
         return result
 
     def transaction_hash(self,txn):
@@ -258,15 +268,26 @@ class parseJSON:
 
         return views, sends, contracts
 
+    def get_network_details(network, networks_list):
+        for network_info in networks_list:
+            if network_info.get("network") == network:
+                return network_info.get("symbol"), network_info.get("rpc")
+        return None, None
+
+    def read_file(filename):
+        with open(filename, "r") as file:
+            file_content = file.read()
+            return file_content
+
 class executeAPI:
     exe = None
     erc20_contract_abi = None
     erc1155_contract_abi = None
 
     def __init__(self,address,network):
-        exe = lambdaWeb3API.executeWeb3(network,address)
-        self.erc20_contract_abi = exe.erc20_contract_abi
-        self.erc1155_contract_abi = exe.erc1155_contract_abi
+        self.exe = executeWeb3(network,address)
+        self.erc20_contract_abi = self.exe.erc20_contract_abi
+        self.erc1155_contract_abi = self.exe.erc1155_contract_abi
         
     def executeView(self,views,network):
         address = views['address']
@@ -281,7 +302,7 @@ class executeAPI:
         try:
             for i in tokens:
                 try:
-                    name, symbol, balance, decimals = exe.balanceXRC20(i, address)
+                    name, symbol, balance, decimals = self.exe.balanceXRC20(i, address)
                     
                     token_details = {
                         "asset": name,
@@ -305,11 +326,11 @@ class executeAPI:
                             error = "default error"
                             if(self.is_erc1155_contract(t["contract"] ) == True):
                                 error = "Error ERC1155"
-                                balance = exe.balanceERC1155(t["contract"], address,item)
+                                balance = self.exe.balanceERC1155(t["contract"], address,item)
 
                             if(self.is_erc721_contract(t["contract"]) == True):
                                 error = "Error ERC721"
-                                balance = exe.balanceERC721(t["contract"], address,item)
+                                balance = self.exe.balanceERC721(t["contract"], address,item)
 
                             token_details = {
                                 "asset": item,
@@ -341,7 +362,7 @@ class executeAPI:
                     "output": [200]
                 }
             }
-            """ % (network,exe.balance(address),address,comma,token_details_list)
+            """ % (network,self.exe.balance(address),address,comma,token_details_list)
             
         except Exception as e:
             jsonObj = """     {
@@ -363,7 +384,7 @@ class executeAPI:
         token_details_list = []
         try:
             if(asset == "0x0000000000000000000000000000000000000000"):
-                txhash = exe.send(amount[0],send_to,privateKey)
+                txhash = self.exe.send(amount[0],send_to,privateKey)
                 token_details = {
                     "txn_hash": txhash.hex(),
                     "amount": amount[0],
@@ -372,7 +393,7 @@ class executeAPI:
                 token_details_list.append(token_details)    
 
             elif(asset != "0x0000000000000000000000000000000000000000" and self.is_erc1155_contract(asset) != True and self.is_erc721_contract(asset) != True ):
-                txhash = exe.sendXRC20(asset,amount[0],send_to,privateKey)
+                txhash = self.exe.sendXRC20(asset,amount[0],send_to,privateKey)
                 token_details = {
                     "txn_hash": txhash.hex(),
                     "amount": amount[0],
@@ -381,7 +402,7 @@ class executeAPI:
                 token_details_list.append(token_details)  
 
             elif(self.is_erc1155_contract(asset) == True):
-                txhash = exe.sendERC1155(asset, ids, amount, send_to, privateKey)
+                txhash = self.exe.sendERC1155(asset, ids, amount, send_to, privateKey)
                 token_details = {
                     "txn_hash": txhash.hex(),
                     "amount": amount,
@@ -390,7 +411,7 @@ class executeAPI:
                 token_details_list.append(token_details)  
 
             elif(self.is_erc721_contract(asset) == True):
-                # txhash = exe.sendXRC721(asset[0], ids[0], amount, send_to, privateKey)
+                # txhash = self.exe.sendXRC721(asset[0], ids[0], amount, send_to, privateKey)
                 print("trigger XRC721send")
                 token_details = {
                     "txn_hash": txhash.hex(),
@@ -425,7 +446,7 @@ class executeAPI:
         call = contracts['call']
 
         try:
-            output = exe.call_contract_function( contract_address, contract_abi, function, call,privateKey)
+            output = self.exe.call_contract_function( contract_address, contract_abi, function, call,privateKey)
             token_details = {
                 "output": output,
                 "function": function,
@@ -449,7 +470,7 @@ class executeAPI:
 
     def is_erc20_contract(self,address):
         try:
-            contract = exe.w3.eth.contract(address=address, abi=self.erc20_contract_abi)
+            contract = self.exe.w3.eth.contract(address=address, abi=self.erc20_contract_abi)
             totalSupply = contract.functions.decimals()
             return True
         except:
@@ -457,7 +478,7 @@ class executeAPI:
 
     def is_erc1155_contract(self,address):
         try:
-            contract = exe.w3.eth.contract(address=address, abi=self.erc1155_contract_abi)
+            contract = self.exe.w3.eth.contract(address=address, abi=self.erc1155_contract_abi)
             contract.functions.balanceOf(address, 0).call()
             return True
         except:
@@ -465,7 +486,7 @@ class executeAPI:
 
     def is_erc721_contract(self,address):
         try:
-            contract = exe.w3.eth.contract(address=address, abi=[self.erc721_contract_abi])
+            contract = self.exe.w3.eth.contract(address=address, abi=[self.erc721_contract_abi])
             return hasattr(contract.functions, 'balanceOf') and 'Transfer' in contract.events
         except:
             return False
