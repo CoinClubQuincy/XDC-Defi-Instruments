@@ -1,6 +1,6 @@
 import sha3
 from web3.auto import w3
-from web3 import Web3, AsyncWeb3
+from web3 import Web3
 from web3 import Web3, EthereumTesterProvider
 from web3.middleware import construct_sign_and_send_raw_middleware
 from eth_account import Account
@@ -353,7 +353,7 @@ class executeAPI:
                 "return":{
                     "balanceOf": [
                         {
-                        "asset": %s,
+                        "asset": "%s",
                         "amount": %s,
                         "address": "%s"
                         }%s
