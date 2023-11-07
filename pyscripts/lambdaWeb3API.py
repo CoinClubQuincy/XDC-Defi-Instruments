@@ -23,23 +23,20 @@ class LocalSeedStorageTest:
         return 
 
 class executeWeb3:
-    w3 = None
-    sender_address = None
-
     erc20_contract_abi = [
-    {'constant': True,'inputs': [],'name': 'name','outputs': [{'name': '', 'type': 'string'}],'payable': False,'type': 'function'},
-    {'constant': True,'inputs': [],'name': 'symbol','outputs': [{'name': '', 'type': 'string'}],'payable': False,'type': 'function'},
-    {'constant': True,'inputs': [],'name': 'decimals','outputs': [{'name': '', 'type': 'uint8'}],'payable': False,'type': 'function'},
-    {'constant': False,'inputs': [{'name': '_spender', 'type': 'address'}, {'name': '_value', 'type': 'uint256'}],'name': 'approve','outputs': [{'name': 'success', 'type': 'bool'}],'payable': False,'type': 'function'},
-    {'constant': True,'inputs': [{'name': '_owner', 'type': 'address'}, {'name': '_spender', 'type': 'address'}],'name': 'allowance','outputs': [{'name': 'remaining', 'type': 'uint256'}],'payable': False,'type': 'function'},
-    {'constant': False,'inputs': [{'name': '_to', 'type': 'address'}, {'name': '_value', 'type': 'uint256'}],'name': 'transfer','outputs': [{'name': 'success', 'type': 'bool'}],'payable': False,'type': 'function'},
-    {'constant': False,'inputs': [{'name': '_spender', 'type': 'address'}, {'name': '_value', 'type': 'uint256'}, {'name': '_extraData', 'type': 'bytes'}],'name': 'approveAndCall','outputs': [{'name': 'success', 'type': 'bool'}],'payable': False,'type': 'function'},
-    {'constant': True,'inputs': [{'name': '_owner', 'type': 'address'}],'name': 'balanceOf','outputs': [{'name': 'balance', 'type': 'uint256'}],'payable': False,'type': 'function'},
-    {'constant': False,'inputs': [{'name': '_from', 'type': 'address'}, {'name': '_to', 'type': 'address'}, {'name': '_value', 'type': 'uint256'}],'name': 'transferFrom','outputs': [{'name': 'success', 'type': 'bool'}],'payable': False,'type': 'function'},
-    {'constant': False,'inputs': [{'name': '_to', 'type': 'address'}, {'name': '_value', 'type': 'uint256'}, {'name': '_extraData', 'type': 'bytes'}],'name': 'transferAndCall','outputs': [{'name': 'success', 'type': 'bool'}],'payable': False,'type': 'function'},
-    {'inputs': [{'name': '_initialAmount', 'type': 'uint256'}, {'name': '_tokenName', 'type': 'string'}, {'name': '_decimalUnits', 'type': 'uint8'}, {'name': '_tokenSymbol', 'type': 'string'}],'type': 'constructor'},
-    {'anonymous': False,'inputs': [{'indexed': True, 'name': '_from', 'type': 'address'}, {'indexed': True, 'name': '_to', 'type': 'address'}, {'indexed': False, 'name': '_value', 'type': 'uint256'}],'name': 'Transfer','type': 'event'},
-    {'anonymous': False,'inputs': [{'indexed': True, 'name': '_owner', 'type': 'address'}, {'indexed': True, 'name': '_spender', 'type': 'address'}, {'indexed': False, 'name': '_value', 'type': 'uint256'}],'name': 'Approval','type': 'event'}
+    {"constant": True,"inputs": [],"name": "name","outputs": [{"name": "", "type": "string"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [],"name": "symbol","outputs": [{"name": "", "type": "string"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [],"name": "decimals","outputs": [{"name": "", "type": "uint8"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_spender", "type": "address"}, {"name": "_value", "type": "uint256"}],"name": "approve","outputs": [{"name": "success", "type": "bool"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_owner", "type": "address"}, {"name": "_spender", "type": "address"}],"name": "allowance","outputs": [{"name": "remaining", "type": "uint256"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}],"name": "transfer","outputs": [{"name": "success", "type": "bool"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_spender", "type": "address"}, {"name": "_value", "type": "uint256"}, {"name": "_extraData", "type": "bytes"}],"name": "approveAndCall","outputs": [{"name": "success", "type": "bool"}],"payable": False,"type": "function"},
+    {"constant": True,"inputs": [{"name": "_owner", "type": "address"}],"name": "balanceOf","outputs": [{"name": "balance", "type": "uint256"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_from", "type": "address"}, {"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}],"name": "transferFrom","outputs": [{"name": "success", "type": "bool"}],"payable": False,"type": "function"},
+    {"constant": False,"inputs": [{"name": "_to", "type": "address"}, {"name": "_value", "type": "uint256"}, {"name": "_extraData", "type": "bytes"}],"name": "transferAndCall","outputs": [{"name": "success", "type": "bool"}],"payable": False,"type": "function"},
+    {"inputs": [{"name": "_initialAmount", "type": "uint256"}, {"name": "_tokenName", "type": "string"}, {"name": "_decimalUnits", "type": "uint8"}, {"name": "_tokenSymbol", "type": "string"}],"type": "constructor"},
+    {"anonymous": False,"inputs": [{"indexed": True, "name": "_from", "type": "address"}, {"indexed": True, "name": "_to", "type": "address"}, {"indexed": False, "name": "_value", "type": "uint256"}],"name": "Transfer","type": "event"},
+    {"anonymous": False,"inputs": [{"indexed": True, "name": "_owner", "type": "address"}, {"indexed": True, "name": "_spender", "type": "address"}, {"indexed": False, "name": "_value", "type": "uint256"}],"name": "Approval","type": "event"}
     ]
     erc1155_contract_abi = [
     {"constant": True,"inputs": [{"name": "account","type": "address"},{"name": "id","type": "uint256"}],"name": "balanceOf","outputs": [{"name": "","type": "uint256"}],"payable": False,"stateMutability": "view","type": "function"},
@@ -75,15 +72,12 @@ class executeWeb3:
     {"anonymous": False,"inputs": [{"indexed": True,"name": "_owner","type": "address"},{"indexed": True,"name": "_operator","type": "address"},{"indexed": False,"name": "_approved","type": "bool"}],"name": "ApprovalForAll","type": "event"}
     ]
 
-
     def __init__(self,_network,_sender_address):
         network = _network
         sender_address = _sender_address
 
-        w3 = Web3(Web3.HTTPProvider(network))
+        self.w3 = Web3(Web3.HTTPProvider(network))
         Account.enable_unaudited_hdwallet_features()
-
-        self.w3 = w3
         print("Joining: [ %s ] network, with Address: %s IS CONNECTED %s" % (network,sender_address,self.w3.is_connected()))
 
 
@@ -130,9 +124,9 @@ class executeWeb3:
 
         signed_transaction = self.w3.eth.account.sign_transaction(
             transaction.build_transaction({
-                'gas': 200000,
-                'gasPrice': 25,  
-                'nonce': self.w3.eth.get_transaction_count(sender_address),
+                "gas": 200000,
+                "gasPrice": 25,  
+                "nonce": self.w3.eth.get_transaction_count(sender_address),
             }),
             private_key=private_key,
         )
@@ -156,13 +150,12 @@ class executeWeb3:
     def sendERC1155(self, erc1155_contract_address, token_id, amount, receiver_address, private_key):
         erc1155_contract = self.w3.eth.contract(address=erc1155_contract_address, abi=self.erc1155_contract_abi)
         sender_address = self.w3.eth.account.from_key(private_key).address
-        print("check")
-        transaction = erc1155_contract.functions.safeBatchTransferFrom(sender_address, receiver_address, token_id, amount, b'')
+        transaction = erc1155_contract.functions.safeBatchTransferFrom(sender_address, receiver_address, token_id, amount, b"")
 
         transaction_dict = {
-            'gas': 200000,
-            'gasPrice': 25,
-            'nonce': self.w3.eth.get_transaction_count(sender_address)
+            "gas": 200000,
+            "gasPrice": 25,
+            "nonce": self.w3.eth.get_transaction_count(sender_address)
         }
 
         signed_transaction = self.w3.eth.account.sign_transaction(
@@ -187,14 +180,14 @@ class executeWeb3:
         transaction = erc721_contract.functions.safeTransferFrom(sender_address, receiver_address, token_id)
         
         nonce = self.w3.eth.get_transaction_count(sender_address)
-        gas_price = self.w3.toWei(25, 'gwei')
+        gas_price = self.w3.toWei(25, "gwei")
         gas_limit = 200000
 
         transaction_dict = {
-            'gas': gas_limit,
-            'gasPrice': gas_price,
-            'nonce': nonce,
-            'chainId': self.chain_id
+            "gas": gas_limit,
+            "gasPrice": gas_price,
+            "nonce": nonce,
+            "chainId": self.chain_id
         }
 
         signed_transaction = self.w3.eth.account.sign_transaction(
@@ -224,7 +217,6 @@ class executeWeb3:
         
         #result = contract_function(*function_params).call()
         #self.w3.eth.wait_for_transaction_receipt(transaction_hash)
-        print("final check")
         
         return result
 
@@ -290,9 +282,9 @@ class executeAPI:
         self.erc1155_contract_abi = self.exe.erc1155_contract_abi
         
     def executeView(self,views,network):
-        address = views['address']
-        tokens = views['tokens']
-        NFTs = views['nft']
+        address = views["address"]
+        tokens = views["tokens"]
+        NFTs = views["nft"]
 
         comma = ""
         if len(tokens) != 0:
@@ -376,10 +368,10 @@ class executeAPI:
         return jsonObj
 
     def executeSend(self,sends,privateKey):
-        asset = sends['asset']
-        send_to = sends['send_to']
-        amount = sends['amount']
-        ids = sends['id']
+        asset = sends["asset"]
+        send_to = sends["send_to"]
+        amount = sends["amount"]
+        ids = sends["id"]
 
         token_details_list = []
         try:
@@ -440,10 +432,10 @@ class executeAPI:
         return jsonObj
 
     def executeContracts(self,contracts,privateKey):
-        contract_address = contracts['address']
-        contract_abi = contracts['abi']
-        function = contracts['function']
-        call = contracts['call']
+        contract_address = contracts["address"]
+        contract_abi = contracts["abi"]
+        function = contracts["function"]
+        call = contracts["call"]
 
         try:
             output = self.exe.call_contract_function( contract_address, contract_abi, function, call,privateKey)
@@ -487,7 +479,7 @@ class executeAPI:
     def is_erc721_contract(self,address):
         try:
             contract = self.exe.w3.eth.contract(address=address, abi=[self.erc721_contract_abi])
-            return hasattr(contract.functions, 'balanceOf') and 'Transfer' in contract.events
+            return hasattr(contract.functions, "balanceOf") and "Transfer" in contract.events
         except:
             return False
 
