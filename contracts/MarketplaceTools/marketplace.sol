@@ -709,7 +709,7 @@ contract Marketplace is ERC1155{
 
 
     modifier onlyAdmin{
-        require(balanceOf(msg.sender,handlerToken) <= 1, "user does not hold handler token");
+        require(balanceOf(msg.sender,handlerToken) >= 1, "user does not hold handler token");
         _;
     }
 
