@@ -34,6 +34,18 @@ contract Marketplace is ERC1155{
     uint256 public auctionId;
     uint public handlerToken;
 
+
+    function viewAllAssetsAndBids() public view returns (SellList[] memory) {
+        SellList[] memory allAssets = new SellList[](salesId);
+
+        for (uint256 i = 0; i < salesId; i++) {
+            allAssets[i] = sales[i];
+        }
+
+        return allAssets;
+    }
+
+
     /// @notice This is the Sell struct, the basic structures contain the owner of the selling tokens.
     struct SellList {
         address seller;
