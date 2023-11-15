@@ -1,5 +1,13 @@
 [
     {
+        "type": "Header",
+        "call": {
+            "network": "XDC", 
+            "tokens": [],
+            "id": []
+        }
+    },
+    {
         "type": "View",
         "call": {
             "address": "0x0000000000000000000000000000000000000000", 
@@ -21,53 +29,100 @@
         "call": {
             "CIML": "name",
             "function": "func()",
-            "call": ["execute",true]
+            "call": ["execute",true],
+            "amount": 100000000000000000000000000000000000000000000000000000000
         }
     },
-    {
-        "type":"View",
-        "return":{
-            "balanceOf": [
-                {
-                "asset": "XDC",
-                "amount": "160.4234",
-                "address": "address"
-                },
-                {
-                    "asset": "GLD",
-                    "amount": "1000",
-                    "address": "address"
-                }
-            ],
-            "output": [200]
-        }
-    },
-    {
-        "type":"Send",
-        "return":{
-            "balanceOf": [
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+{
+    "call":{
+        "Profile": [
             {
-                "asset": "XDC",
-                "amount": ["100"],
-                "id": []
+                "type":"Profile",
+                "return":{
+                    "user": {
+                        "username": "quincy@nuclei",
+                        "organization": "NONE",
+                        "network": "NUKE",
+                        "portfolio": "0x00000000000000000000000000000000000000001",
+                        "wallet": "0x00000000000000000000000000000000000000002"
+                    },
+                    "portfolio":[
+                        {
+                        "name": "0x00000000000000000000000000000000000000001",
+                        "portfolio": "0x00000000000000000000000000000000000000001"
+                        }
+                    ],
+                    "wallets":[
+                        {
+                        "name": "0x00000000000000000000000000000000000000001",
+                        "wallet": "0x00000000000000000000000000000000000000001",
+                        "id": 0
+                        }
+                    ],
+                    "output": [200]
+                }     
             }
-            ],
-            "output": [200]
-        }
-    },
-    {
-        "type":"Contract",
-        "return":{
-            "CIML": "name",
-            "function": "func()",
-            "output": ["msg"]
-        }
-    },
-    {
-        "type" : "Error",
-        "return":{
-            "error_code" : 1,
-            "error_msg" : "default error"
-        }
+        ],
+        "Write":[
+            {
+                "type":"Write",
+                "return": {"output": ["9", "9"], "function": "changeMemo", "contract": "0x24D89d231A11B848b39c4Ee0c02913C564973c45"} 
+            }
+        ],
+        "Transfer":[
+            {
+                "type":"Transfer",
+                "return":{
+                    "Transfer": [{"txn_hash": "0x32d51778af922701a686e3b6047e1893b477b440d887aaeb262fe14c4ff6cd20", "amount": 5, "asset": "native"}],
+                    "output": [200]
+                }
+            }
+            ,     {
+                "type":"Transfer",
+                "return":{
+                    "Transfer": [{"txn_hash": "0x3ddf15f8810e06571fe6247a6452a7be681679de425e497ce069c54aea14f5b4", "amount": 1, "asset": "0x848E34664a5239a1E4e685FC657674dED62cE3d7"}],
+                    "output": [200]
+                }
+            }
+            ,     {
+                "type":"Transfer",
+                "return":{
+                    "Transfer": [{"txn_hash": "0x0ae6f62ff3bdcaeb4c7d8b05549e331ef538e55d5845b92840cff60576487bb8", "amount": [1], "asset": "0x7Ee5C8C42Fea7B3a6Be21DACEeeD66B77aeFe9d8"}],
+                    "output": [200]
+                }
+            }
+        ],
+        "Read": [
+            {
+                "type":"Read",
+                "return":{
+                    "balanceOf": [
+                        {
+                        "asset": "XDC",
+                        "amount": 5000240179702618744,
+                        "address": "0xb029eD54A66eF927f688bD1Ab6D697ABe1ecaa6F"
+                        },
+                        [{"asset": "Gold", "amount": 8.68e-16, "address": "0x848E34664a5239a1E4e685FC657674dED62cE3d7"}, {"asset": 0, "amount": 999999999999999990, "address": "0x7Ee5C8C42Fea7B3a6Be21DACEeeD66B77aeFe9d8"}, {"asset": 1, "amount": 999999999999999922, "address": "0x7Ee5C8C42Fea7B3a6Be21DACEeeD66B77aeFe9d8"}]
+                    ],
+                    "output": [200]
+                }
+            }
+        ]
     }
+}
 ]

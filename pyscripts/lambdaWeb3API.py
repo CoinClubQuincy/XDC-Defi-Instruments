@@ -20,7 +20,6 @@ class LocalSeedStorageTest:
         }
 
         self.users.append(user)
-        return 
 
 class executeWeb3:
     erc20_contract_abi = [
@@ -80,7 +79,6 @@ class executeWeb3:
         Account.enable_unaudited_hdwallet_features()
         print("Joining: [ %s ] network, with Address: %s IS CONNECTED %s" % (network,sender_address,self.w3.is_connected()))
 
-
     def balance(self,address):
         balance = self.w3.eth.get_balance(address)
         return balance
@@ -135,7 +133,6 @@ class executeWeb3:
 
         return tx_hash
 
-
     def balanceXRC20(self, erc20_contract_address, address_to_check):
         erc20_contract = self.w3.eth.contract(address=w3.to_checksum_address(erc20_contract_address), abi=self.erc20_contract_abi)
         symbol = erc20_contract.functions.symbol().call()
@@ -145,7 +142,6 @@ class executeWeb3:
 
         balance = erc20_contract.functions.balanceOf(address_to_check).call() / 10**decimals
         return (name,symbol,balance,decimals)
-
 
     def sendERC1155(self, erc1155_contract_address, token_id, amount, receiver_address, private_key):
         erc1155_contract = self.w3.eth.contract(address=erc1155_contract_address, abi=self.erc1155_contract_abi)
@@ -166,7 +162,6 @@ class executeWeb3:
         tx_hash = self.w3.eth.send_raw_transaction(signed_transaction.rawTransaction)
         self.w3.eth.wait_for_transaction_receipt(tx_hash)
         return tx_hash
-
 
     def balanceERC1155(self, contract_address, address_to_check, token_id):
         erc1155_contract = self.w3.eth.contract(address=contract_address, abi=self.erc1155_contract_abi)
@@ -205,20 +200,34 @@ class executeWeb3:
         balance = erc721_contract.functions.balanceOf(address_to_check, token_id).call()
         return balance
 
-    def call_contract_function(self, contract_address, contract_abi, function_name, function_params, sender_private_key):
+    def call_contract_function(self, contract_address, contract_abi, function_name, function_params,value, sender_private_key):
         contract = self.w3.eth.contract(address=contract_address, abi=contract_abi)
         key = self.w3.eth.account.from_key(sender_private_key)
 
         if function_name not in contract.functions:
             raise ValueError(f"Function '{function_name}' not found in contract ABI")
 
-        contract_function = getattr(contract.functions, function_name)
-        result = contract_function(*function_params).call()
+        try:
+            contract_function = getattr(contract.functions, function_name)
+            result = contract_function(*function_params).call()
+            
+            signed_transaction = self.w3.eth.account.sign_transaction(
+                contract_function(*function_params).build_transaction({
+                    "gas": 200000,
+                    "gasPrice": 25,  
+                    "value": value,
+                    "nonce": self.w3.eth.get_transaction_count(key.address),
+                }),
+                private_key=sender_private_key, 
+            )
+
+            transaction_hash = self.w3.eth.send_raw_transaction(signed_transaction.rawTransaction)
+            transaction_receipt = self.w3.eth.wait_for_transaction_receipt(transaction_hash)
+
+        except ValueError as error:    
+            return "call_contract_function error:" + str(error)
         
-        #result = contract_function(*function_params).call()
-        #self.w3.eth.wait_for_transaction_receipt(transaction_hash)
-        
-        return result
+        return  result
 
     def transaction_hash(self,txn):
         transaction = self.w3.eth.get_transaction(txn)
@@ -256,7 +265,8 @@ class parseJSON:
                 abi = obj_call.get("abi", "")
                 function = obj_call.get("function", "")
                 call_list = obj_call.get("call", [])
-                contracts.append({"address": address,"abi": abi,"function": function, "call": call_list})
+                call_value = obj_call.get("value", [])
+                contracts.append({"address": address,"abi": abi,"function": function, "call": call_list,"value": call_value})
 
         return views, sends, contracts
 
@@ -272,10 +282,6 @@ class parseJSON:
             return file_content
 
 class executeAPI:
-    exe = None
-    erc20_contract_abi = None
-    erc1155_contract_abi = None
-
     def __init__(self,address,network):
         self.exe = executeWeb3(network,address)
         self.erc20_contract_abi = self.exe.erc20_contract_abi
@@ -286,9 +292,6 @@ class executeAPI:
         tokens = views["tokens"]
         NFTs = views["nft"]
 
-        comma = ""
-        if len(tokens) != 0:
-            comma = ","
         token_details_list = []
 
         try:
@@ -297,8 +300,8 @@ class executeAPI:
                     name, symbol, balance, decimals = self.exe.balanceXRC20(i, address)
                     
                     token_details = {
-                        "asset": name,
-                        "amount": balance,
+                        "asset": str(name),
+                        "amount": str(balance),
                         "address": i
                     }
                     
@@ -325,8 +328,8 @@ class executeAPI:
                                 balance = self.exe.balanceERC721(t["contract"], address,item)
 
                             token_details = {
-                                "asset": item,
-                                "amount": balance,
+                                "asset": str(item),
+                                "amount": str(balance),
                                 "address": t["contract"] 
                             }
                             token_details_list.append(token_details)
@@ -334,28 +337,32 @@ class executeAPI:
                         except Exception as e:
                             token_details = {
                                 "asset": item,
-                                "amount": error,
+                                "amount": str(error),
                                 "address": t["contract"]
                             }
                             token_details_list.append(token_details)
 
 
-            jsonObj = """     {
+
+            balanceOffirst = {
+                        "asset": str(network),
+                        "amount": str(self.exe.balance(address)),
+                        "address": self.exe.balance(address)
+                        }
+            balanceOfRest = []
+            balanceOfRest.append(balanceOffirst)
+            for token in token_details_list:
+                balanceOfRest.append(token)
+
+            jsonObj =    {
                 "type":"Read",
                 "return":{
-                    "balanceOf": [
-                        {
-                        "asset": "%s",
-                        "amount": %s,
-                        "address": "%s"
-                        }%s
-                        %s
-                    ],
+                    "balanceOf": balanceOfRest,
                     "output": [200]
                 }
             }
-            """ % (network,self.exe.balance(address),address,comma,token_details_list)
-            
+        #print("OBJ: "+ str(jsonObj))
+        
         except Exception as e:
             jsonObj = """     {
                     "type":"View",
@@ -379,7 +386,7 @@ class executeAPI:
                 txhash = self.exe.send(amount[0],send_to,privateKey)
                 token_details = {
                     "txn_hash": txhash.hex(),
-                    "amount": amount[0],
+                    "amount": str(amount[0]),
                     "asset": "native"
                 }
                 token_details_list.append(token_details)    
@@ -388,8 +395,8 @@ class executeAPI:
                 txhash = self.exe.sendXRC20(asset,amount[0],send_to,privateKey)
                 token_details = {
                     "txn_hash": txhash.hex(),
-                    "amount": amount[0],
-                    "asset": asset
+                    "amount": str(amount[0]),
+                    "asset": str(asset)
                 }
                 token_details_list.append(token_details)  
 
@@ -397,8 +404,8 @@ class executeAPI:
                 txhash = self.exe.sendERC1155(asset, ids, amount, send_to, privateKey)
                 token_details = {
                     "txn_hash": txhash.hex(),
-                    "amount": amount,
-                    "asset": asset
+                    "amount": str(amount),
+                    "asset": str(asset)
                 }
                 token_details_list.append(token_details)  
 
@@ -407,16 +414,16 @@ class executeAPI:
                 print("trigger XRC721send")
                 token_details = {
                     "txn_hash": txhash.hex(),
-                    "amount": amount[0],
-                    "asset": asset
+                    "amount": str(amount[0]),
+                    "asset": str(asset)
                 }
                 token_details_list.append(token_details) 
 
         except Exception as e:
             token_details = {
                 "txn_hash": "general Transfer error",
-                "amount": amount,
-                "asset": asset
+                "amount": str(amount),
+                "asset": str(asset)
             }
             token_details_list.append(token_details)  
 
@@ -436,9 +443,10 @@ class executeAPI:
         contract_abi = contracts["abi"]
         function = contracts["function"]
         call = contracts["call"]
+        value = contracts["value"]
 
         try:
-            output = self.exe.call_contract_function( contract_address, contract_abi, function, call,privateKey)
+            output = self.exe.call_contract_function( contract_address, contract_abi, function, call,value,privateKey)
             token_details = {
                 "output": output,
                 "function": function,
@@ -447,8 +455,8 @@ class executeAPI:
   
         except Exception as e:
             token_details = {
-                "output": "error",
-                 "function": function,
+                "output": "write error: " + str(e),
+                "function": function,
                 "contract": contract_address
             }
 
