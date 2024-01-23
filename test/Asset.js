@@ -1,53 +1,31 @@
-const { time, loadFixture,} = require("@nomicfoundation/hardhat-network-helpers");
+const { 
+  time, 
+  loadFixture,
+} = require("@nomicfoundation/hardhat-network-helpers");
 const { anyValue } = require("@nomicfoundation/hardhat-chai-matchers/withArgs");
 const { expect } = require("chai");
-  
-  before("Asset", function () {
 
-    async function init() {
+describe("Asset", function () {
 
+    async function AssetContractLoad() {
+      const [owner, otherAccount] = await ethers.getSigners();
+      const URI = "{ Test URI }"
+      const Asset = await ethers.getContractFactory("Asset");
+      const asset = await Asset.deploy(URI);
+
+      return { asset, owner, otherAccount };
     }
   
-    describe("Contract Unit Test", function () {
-      it("AddToken", async function () {
-        const { lock, unlockTime } = await loadFixture(deployOneYearLockFixture);
-  
-        expect(await lock.unlockTime()).to.equal(unlockTime);
-      });
-  
-      it("viewToken", async function () {
-        const { lock, owner } = await loadFixture(deployOneYearLockFixture);
-  
-        expect(await lock.owner()).to.equal(owner.address);
-      });
-      it("moveAsset", async function () {
-        const { lock, owner } = await loadFixture(deployOneYearLockFixture);
-  
-        expect(await lock.owner()).to.equal(owner.address);
-      });
-      it("destroyAsset", async function () {
-        const { lock, owner } = await loadFixture(deployOneYearLockFixture);
-  
-        expect(await lock.owner()).to.equal(owner.address);
-      });
-      it("Variables", async function () {
-        const { lock, unlockTime } = await loadFixture(deployOneYearLockFixture);
-  
-        expect(await lock.unlockTime()).to.equal(unlockTime);
-      });
+    describe("Deploy Contract", async function () {
+      const { asset } = await loadFixture(AssetContractLoad);
+      const totalCoins = await asset.totalCoins();
+
+      expect(totalCoins).to.equal(0);
     });
 
-    describe("Contract Functional Test", function () {
-      it("4", async function () {
-        const { lock, unlockTime } = await loadFixture(deployOneYearLockFixture);
-  
-        expect(await lock.unlockTime()).to.equal(unlockTime);
-      });
-  
-      it("FuncB", async function () {
-        const { lock, owner } = await loadFixture(deployOneYearLockFixture);
-  
-        expect(await lock.owner()).to.equal(owner.address);
-      });
+    it("viewToken", async function () {
+      const { asset } = await loadFixture(AssetContractLoad);
+
+      expect(asset.totalCoins()).equal(0);
     });
-})
+  });
