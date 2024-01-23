@@ -60,10 +60,9 @@ contract Asset is ERC1155 {
 
     //if the broker for any reason need to move the asset from an abandond account
     //they can use the move Asset function 
-    function moveAsset(uint Token,address _userA,address _userB)public handler returns(bool){
-        require(balanceOf(_userA, Token) >= 1, "Insufficient balance");
-         _burn(_userA, Token, 1);
-        _mint(_userB,Token,1, "");
+    function moveAsset(uint _Token,address _userA,address _userB,uint _amount)public handler returns(bool){
+        require(balanceOf(_userA, _Token) >= 1, "Insufficient balance");
+        safeTransferFrom(_userA, _userB, _Token, _amount, "0x0");
         return true;
     }
 
