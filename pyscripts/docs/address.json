@@ -1,0 +1,17 @@
+[
+    {
+        "network" :{
+            "rpc": "",
+            "addresses":[
+                {
+                "name": "asset",
+                "address": "0x848E34664a5239a1E4e685FC657674dED62cE3d7",
+                "type": 1155,
+                "ids": ["funcs","or","223"]
+                }
+        ]
+        }
+    }
+]
+
+
