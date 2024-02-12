@@ -1,9 +1,10 @@
-# XDC-BrokerageDapp
+# XDC-Defi-Instruments
+
 This is a Proof of concept that will articulate how Financial firms and brokers tokenize Assets can persist on the blockchain and be automated by finance contracts like options, future and Forwards contracts and reside in autonomous marketplaces.
 
 This is a repository That contains a set of templates for automated Trade finance tools, these tools are traditional finance instruments but automated through a series of smart contracts to allow for anyone to have the ability to engage with tools that traditionally banks,broker-dealers, exchanges and other financial institutions would be capable of managing, now anyone can deploy and manage these tool from a smart phone and use the XDC crypto currency as a means of capital when engaging with these contracts to help further economic productivity autonomously 
 
-# Brokerage DApp 
+# Defi DApp 
 ![BrokerageDapp-2](https://github.com/CoinClubQuincy/XDC-Automated-Asset-Management/assets/16103963/524c19c6-7f6b-43b1-a999-84c12b601b3f)
 
 
