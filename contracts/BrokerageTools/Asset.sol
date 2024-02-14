@@ -26,6 +26,7 @@ contract Asset is ERC1155 {
     
     //initializer Execute some initial code as contract is launched
     constructor(string memory _URI) ERC1155(_URI) {
+        require(bytes(_URI).length > 0, "URI cannot be empty");
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(msg.sender,handlerToken,1, "");
     }
@@ -47,6 +48,11 @@ contract Asset is ERC1155 {
 
     //This function allows you to add or create new tokens and log their data into the smart contract 
     function AddToken(string memory name, string memory att1, string memory att2,string memory assetType)public handler returns(bool){
+        require(bytes(name).length > 0, "Name cannot be empty");
+        require(bytes(att1).length > 0, "Attribute 1 cannot be empty");
+        require(bytes(att2).length > 0, "Attribute 2 cannot be empty");
+        require(bytes(assetType).length > 0, "Asset type cannot be empty");
+    
         _mint(msg.sender,totalCoins,1, "");
         tokens[totalCoins] = Tokens(name,att1,att2,assetType);
         totalCoins++;
@@ -55,6 +61,7 @@ contract Asset is ERC1155 {
 
     //view token name and price of token to gauge what asset is corelated to the index nuber acociatyed with the asset
     function viewToken(uint Token)public view  returns(string memory, string memory, string memory,string memory) {
+        require(Token < totalCoins, "Token does not exist");
         return (tokens[Token].name, tokens[Token].description, tokens[Token].image, tokens[Token].assetType);
     }
 

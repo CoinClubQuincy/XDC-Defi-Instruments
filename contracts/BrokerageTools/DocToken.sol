@@ -28,6 +28,10 @@ contract Document is ERC1155{
         uint token;
     }
     function createDoc(string memory _name,string memory _docHash,string memory _desc) Handler public returns(bool){
+        require(bytes(_name).length > 0, "Name cannot be empty");
+        require(bytes(_docHash).length > 0, "Document hash cannot be empty");
+        require(bytes(_desc).length > 0, "Description cannot be empty");
+
         docs[totalDocs] = DocDictionary(_name,_docHash,_desc,totalDocs);
         _mint(msg.sender,totalDocs,1, "");
         totalDocs++;

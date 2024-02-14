@@ -26,7 +26,7 @@ contract Forward is ERC1155 {
     bool public contractSold = false;
     address public AssetTokenAddress;
     ASSET public Asset;
-    uint[] public TokenAmmounts;
+
     uint public Tokens;
     bool public activated;
 
@@ -61,6 +61,11 @@ contract Forward is ERC1155 {
 
     // Create func to list token price and drop commodities token in forwards contract
     function deployAssets(address _AssetTokenAddress,uint _Tokens,uint _realeaseDate, uint _price)public Handler returns(bool){
+        require(_AssetTokenAddress != address(0), "Invalid asset token address");
+        require(_Tokens > 0, "Tokens must be greater than 0");
+        require(_realeaseDate > block.timestamp, "Release date must be in the future");
+        require(_price > 0, "Price must be greater than 0");
+        
         realeaseDate = _realeaseDate;
         price = _price;
         AssetTokenAddress = _AssetTokenAddress;
@@ -73,9 +78,9 @@ contract Forward is ERC1155 {
     // create sales function to but contract 
     function buyForwardsToken()public payable  bought activate returns(bool){
         require(msg.value>=price,"funds not enough to purchase contract");
-        refund();
         _mint(msg.sender,forwardToken,1, "");
         contractSold = true;
+        refund();
         return true;
     }
     // token holder can redeem contract once time has elaps
