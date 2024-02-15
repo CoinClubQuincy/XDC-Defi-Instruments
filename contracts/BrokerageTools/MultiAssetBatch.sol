@@ -18,6 +18,11 @@ contract MultiAssetBatch is ERC1155{
     uint public maxBatchSize; //50-100 recomended
 
     constructor(uint _totalHandlers,string memory _URI,string memory _batchName,uint _maxBatchSize) ERC1155(_URI) {
+        require(_totalHandlers > 0, "Total handlers must be greater than 0");
+        require(bytes(_URI).length > 0, "URI cannot be empty");
+        require(bytes(_batchName).length > 0, "Batch name cannot be empty");
+        require(_maxBatchSize > 0, "Max batch size must be greater than 0");
+
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(msg.sender,handlerToken,_totalHandlers, "");
         batchName = _batchName;
@@ -42,7 +47,11 @@ contract MultiAssetBatch is ERC1155{
     
     function addAssets(address _contract,string memory _assetName,uint[] memory _id,uint[] memory _amount)public handler returns(string memory,bool){
         require(tokenIDNumber <= maxBatchSize,"Contract has hit Max Batch limit");
-        require(_id.length ==_amount.length ,"both the token id and the ammount arrays must have the same length");
+        require(_contract != address(0), "Contract address cannot be 0");
+        require(bytes(_assetName).length > 0, "Asset name cannot be empty");
+        require(_id.length > 0, "ID array cannot be empty");
+        require(_amount.length > 0, "Amount array cannot be empty");
+        require(_id.length == _amount.length ,"Both the token id and the amount arrays must have the same length");
         
         ERC1155 tokenContract = ERC1155(_contract);
 

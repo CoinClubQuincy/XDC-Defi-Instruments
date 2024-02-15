@@ -5,6 +5,7 @@ pragma solidity ^0.8.9;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/utils/Address.sol";
 import "./marketplace.sol";
 
 
@@ -12,6 +13,8 @@ import "./marketplace.sol";
 /// @author R Qiuincy Jones
 /// @notice This is a portfolio contract that allows a single contract to custody assets from the 1155 marketplace
 /// @dev this contravct works well with the 1155 marketplace contract
+
+using Address for address;
 
 contract portfolioLedger{
     string portfolioTokenURI;   //URI formart for users
@@ -40,6 +43,8 @@ contract portfolioLedger{
     //Create new User Account
     function createAccount(string memory _account)public returns(string memory,address){
         require(ledger[_account].exist == false, "account already exist");
+        require(bytes(_account).length > 0, "Account name cannot be empty");
+
         address portfolioContractAddress; 
         portfolioContractAddress = address(new Portfolio(portfolioTokenURI,_account,address(this),marketplaceAddress,msg.sender));
         ledger[_account] = Ledger(_account,totalAccounts,portfolioContractAddress,true);
@@ -49,6 +54,10 @@ contract portfolioLedger{
     }
     //check and view new user Account
     function checkAccount(string memory _account,uint accountNumber)public returns(string memory,address,bool){
+        require(bytes(_account).length > 0, "Account name cannot be empty");
+        require(accountNumber > 0, "Account number must be greater than zero");
+
+
         if(ledger[_account].exist = true || numbLedger[accountNumber].exist){
             return (ledger[_account].account,ledger[_account].portfolio,ledger[_account].exist);
         }else{
@@ -57,6 +66,8 @@ contract portfolioLedger{
     }
     //forward funds from one user name to another
     function forwardFunds(string memory _reciver)external payable returns(bool){
+        require(bytes(_reciver).length > 0, "Receiver name cannot be empty");
+        require(msg.value > 0, "Amount must be greater than 0");
         string memory account_;
         address portfolio_;
         bool exist_;
@@ -110,27 +121,35 @@ contract Portfolio is ERC1155{
         _;
     }
     function resetOwner(address _newOwner) public broker returns(address){
-           _mint(_newOwner,handlerToken,1, "");
-           _burn(currentOwner,handlerToken,1);
-           currentOwner = _newOwner;
+        require(_newOwner != address(0), "New owner address cannot be zero");
+        require(_newOwner != currentOwner, "New owner cannot be the same as the current owner");
 
-           emit changedOwner("The registerd broker has chaged the owner of this contract",_newOwner);
-           return _newOwner;
+        _mint(_newOwner,handlerToken,1, "");
+        _burn(currentOwner,handlerToken,1);
+        currentOwner = _newOwner;
+
+        emit changedOwner("The registerd broker has chaged the owner of this contract",_newOwner);
+        return _newOwner;
     }
     function logNewMarketPlace(address _marketplace) internal returns(bool){
-            require(savedmarketplace[_marketplace].exist == false, "Markeplace already exist");
-            savedmarketplace[_marketplace] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
-            marketplaceNumber[marketplaceCount] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
-            marketplaceCount++;
-            return true;
+        require(savedmarketplace[_marketplace].exist == false, "Markeplace already exist");
+        savedmarketplace[_marketplace] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
+        marketplaceNumber[marketplaceCount] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
+        marketplaceCount++;
+        return true;
     }
     function saveMarketplace(address _marketplace)public handler returns(bool){
+        require(_marketplace != address(0), "Marketplace address cannot be zero");
+        require(savedmarketplace[_marketplace].exist == false, "Markeplace already exist");
+
         logNewMarketPlace(_marketplace);
         return true;
     }
 
     function deleteMarketplace(uint _marketplaceIndex)public handler returns(bool){
         require(savedmarketplace[marketplaceNumber[_marketplaceIndex].marketplaceAddress].exist == false, "Markeplace already exist");
+        require(_marketplaceIndex < marketplaceCount, "Marketplace index out of range");
+
         savedmarketplace[marketplaceNumber[_marketplaceIndex].marketplaceAddress] = savedMarketPlaces(0x0000000000000000000000000000000000000000,"removed",false);
         marketplaceNumber[_marketplaceIndex] = savedMarketPlaces(0x0000000000000000000000000000000000000000,"removed",false);
         marketplaceCount--;
@@ -138,10 +157,12 @@ contract Portfolio is ERC1155{
     }
 
     function viewSavedMarketPlaces(uint _marketplaceIndex)public view handler returns(address,string memory,uint){
+        require(_marketplaceIndex < marketplaceCount, "Marketplace index out of range");
         return (marketplaceNumber[_marketplaceIndex].marketplaceAddress,marketplaceNumber[_marketplaceIndex].marketplaceName,_marketplaceIndex);
     }
 
     function changeMarketplace(Marketplace _marketplace) public handler returns(Marketplace){
+        require(address(_marketplace) != address(0), "Marketplace address cannot be zero");
         marketplace = _marketplace;
         emit changedMarketPlace("Marketplace has been changed");
 
