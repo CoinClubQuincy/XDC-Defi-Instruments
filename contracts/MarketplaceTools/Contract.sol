@@ -4,7 +4,7 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 
 /// @title Contract
 /// @author R Quincy Jones
-/// @notice This contract Illistrates how 2 parties can sign an agreement withina smart contract
+/// @notice This contract illustrates how 2 parties can sign an agreement within a smart contract
 /// @dev Simple contract meant to be used to sign documents
 
 contract Contract is ERC1155 {
@@ -17,6 +17,8 @@ contract Contract is ERC1155 {
     string public DocumentHash = "";
     address public PartyASignature;
     address public PartyBSignature;
+    address public WitnessASignature;
+    address public WitnessBSignature;
 
     uint public total_Counter_Proposals =0;
     string public name;
@@ -30,6 +32,8 @@ contract Contract is ERC1155 {
         name = _name;
         _mint(msg.sender,PartyA,1, "");
         _mint(msg.sender,PartyB,1, "");
+        _mint(msg.sender,witnessA,1, "");
+        _mint(msg.sender,witnessB,1, "");
     }
     //only Party A-B can use functions with their modifier
     modifier PartyA_Sign {
@@ -42,10 +46,10 @@ contract Contract is ERC1155 {
         require(balanceOf(msg.sender,PartyB) == 1);
         _;
     }
-    ///once both parties have sign you can no loger modify the contract
+    ///once both parties have signed you can no longer modify the contract
     modifier contractSigned {
         require(contractComplete == false,"Contract has been signed by both parties");
-        require(PartyASignature == address(0) || PartyBSignature == address(0), "contract has been signed");
+        require(PartyASignature != address(0) && PartyBSignature != address(0), "contract has not been signed by both parties");
         _;
     }
 
@@ -65,23 +69,30 @@ contract Contract is ERC1155 {
         total_Counter_Proposals++;
         return true;
     }
-    //Both parties can sign an make the contract official
+    //Both parties can sign and make the contract official
     function sign_proposal()public contractSigned returns(bool,string memory){
         if(balanceOf(msg.sender,PartyA) == 1){
             PartyASignature = msg.sender;
-            contractComplete = true;
             emit proposal(" A proposal has been made by: ", msg.sender);
-            return (true, "Party has signed Document");
+            return (true, "Party A has signed Document");
         } else if(balanceOf(msg.sender,PartyB) ==1 ){
             PartyBSignature = msg.sender;
-            contractComplete = true;
             emit proposal(" A proposal has been made by: ", msg.sender);
-            return (true, "Party has signed Document");
+            return (true, "Party B has signed Document");
+        } else if(balanceOf(msg.sender,witnessA) ==1 ){
+            WitnessASignature = msg.sender;
+            emit proposal(" A proposal has been made by: ", msg.sender);
+            return (true, "Witness A has signed Document");
+        } else if(balanceOf(msg.sender,witnessB) ==1 ){
+            WitnessBSignature = msg.sender;
+            emit proposal(" A proposal has been made by: ", msg.sender);
+            return (true, "Witness B has signed Document");
         }
-        if(PartyASignature != address(0) || PartyBSignature != address(0) ){
-            return (false, "contract not completed");
-        } else {
+        if(PartyASignature != address(0) && PartyBSignature != address(0) && WitnessASignature != address(0) && WitnessBSignature != address(0)){
+            contractComplete = true;
             return (true, "Contract completed");
+        } else {
+            return (false, "contract not completed");
         }
     }
     
