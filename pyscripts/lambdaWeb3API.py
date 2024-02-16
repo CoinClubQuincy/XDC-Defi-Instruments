@@ -1,4 +1,4 @@
-import sha3
+import web3
 from web3.auto import w3
 from web3 import Web3
 from web3 import Web3, EthereumTesterProvider
@@ -91,10 +91,11 @@ class executeWeb3:
         formatted_number = number * 1000000000000000000
         return formatted_number
 
-    def seed_to_private_key(self,seed):
-        account = Account.from_mnemonic(seed)
+    def seed_to_private_key(self, seed):
+        account = Account.create(seed)
         private_key_hex = account.key.hex()
-        return private_key_hex
+        address = account.address
+        return private_key_hex, address
 
     def send(self,amount,sendTo,privateKey):
         userSelf = self.w3.eth.account.from_key(privateKey)
@@ -135,12 +136,23 @@ class executeWeb3:
 
     def balanceXRC20(self, erc20_contract_address, address_to_check):
         erc20_contract = self.w3.eth.contract(address=w3.to_checksum_address(erc20_contract_address), abi=self.erc20_contract_abi)
-        symbol = erc20_contract.functions.symbol().call()
-        decimals = erc20_contract.functions.decimals().call()
-        name = erc20_contract.functions.name().call()
+        try:
+            symbol = erc20_contract.functions.symbol().call()
+        except Exception as e:
+            symbol = "NA"
+        try:
+            decimals = erc20_contract.functions.decimals().call()
+        except Exception as e:
+            decimals = "NA"
+        try:
+            name = erc20_contract.functions.name().call()
+        except Exception as e:
+            name = "NA"
         #totalSupply = erc20_contract.functions.totalSupply().call() / 10**decimals
-
-        balance = erc20_contract.functions.balanceOf(address_to_check).call() / 10**decimals
+        try:
+            balance = erc20_contract.functions.balanceOf(address_to_check).call() / 10**decimals
+        except Exception as e:
+            balance = 0       
         return (name,symbol,balance,decimals)
 
     def sendERC1155(self, erc1155_contract_address, token_id, amount, receiver_address, private_key):
@@ -164,6 +176,7 @@ class executeWeb3:
         return tx_hash
 
     def balanceERC1155(self, contract_address, address_to_check, token_id):
+        print("")
         erc1155_contract = self.w3.eth.contract(address=contract_address, abi=self.erc1155_contract_abi)
         balance = erc1155_contract.functions.balanceOf(address_to_check, token_id).call()
         return balance
@@ -232,7 +245,7 @@ class executeWeb3:
     def transaction_hash(self,txn):
         transaction = self.w3.eth.get_transaction(txn)
         if transaction is None:
-            print(f"Transaction {transaction_hash} not found.")
+            print(f"Transaction {transaction} not found.")
             return "no transaction found"
         else:
             return transaction
@@ -250,8 +263,8 @@ class parseJSON:
             if obj_type == "Read":
                 address = obj_call.get("address", "")
                 tokens = obj_call.get("tokens", [])
-                nft = obj_call.get("nft", [])
-                views.append({"address": address, "tokens": tokens, "nft": nft})
+                nft = obj_call.get("id", [])
+                views.append({"address": address, "tokens": tokens, "id": nft})
 
             elif obj_type == "Transfer":
                 asset = obj_call.get("asset", "")
@@ -290,9 +303,7 @@ class executeAPI:
     def executeView(self,views,network):
         address = views["address"]
         tokens = views["tokens"]
-        NFTs = views["nft"]
-
-        token_details_list = []
+        IDs = views["id"]
 
         try:
             for i in tokens:
@@ -302,77 +313,63 @@ class executeAPI:
                     token_details = {
                         "asset": str(name),
                         "amount": str(balance),
-                        "address": i
+                        "address": address
                     }
                     
-                    token_details_list.append(token_details)
+                    return token_details
 
                 except Exception as e:
                     token_details = {
-                        "asset": "error ERC20",
+                        "asset": f"error {e}",
                         "amount": "0",
-                        "address": i
+                        "address": address
                     }
-                    token_details_list.append(token_details)
+                    return token_details
             
-            for t in NFTs:
-                    for item in t["id"]:
-                        try:
-                            error = "default error"
-                            if(self.is_erc1155_contract(t["contract"] ) == True):
-                                error = "Error ERC1155"
-                                balance = self.exe.balanceERC1155(t["contract"], address,item)
-
-                            if(self.is_erc721_contract(t["contract"]) == True):
-                                error = "Error ERC721"
-                                balance = self.exe.balanceERC721(t["contract"], address,item)
-
-                            token_details = {
-                                "asset": str(item),
-                                "amount": str(balance),
-                                "address": t["contract"] 
-                            }
-                            token_details_list.append(token_details)
-
-                        except Exception as e:
-                            token_details = {
-                                "asset": item,
-                                "amount": str(error),
-                                "address": t["contract"]
-                            }
-                            token_details_list.append(token_details)
+            for t in IDs:
+                token_list = []
+                for item in t["id"]:
+                    try:
+                        error = "default error"
+                        if(self.is_erc1155_contract(t["contract"] ) == True):
+                            error = "Error ERC1155"
+                            balance = self.exe.balanceERC1155(t["contract"], address,item)
 
 
+                        if(self.is_erc721_contract(t["contract"]) == True):
+                            error = "Error ERC721"
+                            balance = self.exe.balanceERC721(t["contract"], address,item)
 
-            balanceOffirst = {
-                        "asset": str(network),
-                        "amount": str(self.exe.balance(address)),
-                        "address": self.exe.balance(address)
+                        token_details = {
+                            "asset": str(item),
+                            "amount": str(balance),
+                            "address": t["contract"] 
                         }
-            balanceOfRest = []
-            balanceOfRest.append(balanceOffirst)
-            for token in token_details_list:
-                balanceOfRest.append(token)
+                        token_list.append(balance)
 
-            jsonObj =    {
-                "type":"Read",
-                "return":{
-                    "balanceOf": balanceOfRest,
-                    "output": [200]
-                }
-            }
-        #print("OBJ: "+ str(jsonObj))
+                    except Exception as e:
+                        token_details = {
+                            "asset": item,
+                            "amount": str(error),
+                            "address": t["contract"]
+                        }
+                        token_list.append(token_details)
+                    
+                return token_details
+
+            return {
+                    "asset": str(network),
+                    "amount": str(self.exe.balance(address)),
+                    "address": address
+                    }
         
         except Exception as e:
-            jsonObj = """     {
-                    "type":"View",
-                    "return":{
-                        "output": [500]
+            return {
+                        "asset": "error",
+                        "amount": e,
+                        "address": address
                     }
-                }
-                """ 
 
-        return jsonObj
 
     def executeSend(self,sends,privateKey):
         asset = sends["asset"]
@@ -381,6 +378,7 @@ class executeAPI:
         ids = sends["id"]
 
         token_details_list = []
+        print(asset,send_to,amount,ids)
         try:
             if(asset == "0x0000000000000000000000000000000000000000"):
                 txhash = self.exe.send(amount[0],send_to,privateKey)
@@ -421,7 +419,7 @@ class executeAPI:
 
         except Exception as e:
             token_details = {
-                "txn_hash": "general Transfer error",
+                "txn_hash": f"general Transfer error - {e}",
                 "amount": str(amount),
                 "asset": str(asset)
             }
