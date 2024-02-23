@@ -4,12 +4,12 @@ const { ethers } = require("hardhat");
 describe("Forward", function () {
   let ASSET, Forward;
   let asset, forward;
-  let owner, buyer, addr3, ...addrs;
+  let owner, buyer, addr3, addrs;
 
   beforeEach(async function () {
     ASSET = await ethers.getContractFactory("ASSET");
     Forward = await ethers.getContractFactory("Forward");
-    [owner, buyer, addr3, ...addrs] = await ethers.getSigners();
+    [owner, buyer, addr3, addrs] = await ethers.getSigners();
 
     asset = await ASSET.deploy();
     await asset.deployed();
