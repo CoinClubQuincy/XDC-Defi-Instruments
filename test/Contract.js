@@ -4,12 +4,12 @@ const { ethers } = require("hardhat");
 describe("Contract", function () {
   let Contract, ContractDeployer;
   let contract, contractDeployer;
-  let owner, partyA, partyB, witnessA, witnessB, ...addrs;
+  let owner, partyA, partyB, witnessA, witnessB, addrs;
 
   beforeEach(async function () {
     Contract = await ethers.getContractFactory("Contract");
     ContractDeployer = await ethers.getContractFactory("ContractDeployer");
-    [owner, partyA, partyB, witnessA, witnessB, ...addrs] = await ethers.getSigners();
+    [owner, partyA, partyB, witnessA, witnessB, addrs] = await ethers.getSigners();
 
     contractDeployer = await ContractDeployer.deploy();
     await contractDeployer.deployed();
