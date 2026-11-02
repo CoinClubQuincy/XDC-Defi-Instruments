@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="XDC DeFi Instruments: Traditional finance tools as smart contract templates">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#071426"/><stop offset="1" stop-color="#0c2d57"/></linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#60a5fa"/><stop offset="1" stop-color="#22d3ee"/></linearGradient>
+    <pattern id="grid" width="32" height="32" patternUnits="userSpaceOnUse"><path d="M32 0H0V32" fill="none" stroke="#ffffff" stroke-opacity=".035"/></pattern>
+  </defs>
+  <rect width="1280" height="360" rx="16" fill="url(#bg)"/>
+  <rect width="1280" height="360" rx="16" fill="url(#grid)"/>
+  <rect x="64" y="52" width="72" height="5" rx="2.5" fill="url(#accent)"/>
+  <text x="64" y="124" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif" font-size="66" font-weight="750" fill="#f8fafc">XDC DeFi Instruments</text>
+  <text x="64" y="174" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif" font-size="29" font-weight="500" fill="#93c5fd">Traditional finance tools as smart contract templates</text>
+  <rect x="64" y="222" width="109" height="50" rx="10" fill="#ffffff" fill-opacity=".06" stroke="#60a5fa" stroke-opacity=".45"/>
+  <text x="118.5" y="254" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#e2e8f0">assets</text>
+  <rect x="187" y="222" width="156" height="50" rx="10" fill="#ffffff" fill-opacity=".06" stroke="#60a5fa" stroke-opacity=".45"/>
+  <text x="265.0" y="254" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#e2e8f0">agreements</text>
+  <rect x="357" y="222" width="272" height="50" rx="10" fill="#ffffff" fill-opacity=".06" stroke="#60a5fa" stroke-opacity=".45"/>
+  <text x="493.0" y="254" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#e2e8f0">forwards and futures</text>
+  <rect x="643" y="222" width="167" height="50" rx="10" fill="#ffffff" fill-opacity=".06" stroke="#60a5fa" stroke-opacity=".45"/>
+  <text x="726.5" y="254" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#e2e8f0">marketplace</text>
+  <text x="64" y="318" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif" font-size="19" fill="#94a3b8">Proof of concept. Most contracts compile, few are tested. Not audited.</text>
+</svg>

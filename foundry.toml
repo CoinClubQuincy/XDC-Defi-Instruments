@@ -1,0 +1,12 @@
+[profile.default]
+src = "contracts"
+test = "test/foundry"
+out = "out"
+cache_path = "cache_forge"
+libs = ["lib"]
+solc = "0.8.19"
+evm_version = "paris"
+optimizer = true
+# Macro_Contracts.sol and Micro_Contracts.sol are unfinished and do not compile yet.
+skip = ["**/Macro_Contracts.sol", "**/Micro_Contracts.sol"]
+remappings = ["@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/", "forge-std/=lib/forge-std/src/"]

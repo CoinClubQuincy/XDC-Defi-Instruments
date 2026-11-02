@@ -1,72 +1,133 @@
-# XDC-Defi-Instruments
+<p align="center">
+  <img src=".github/assets/banner.svg" alt="XDC DeFi Instruments: Traditional finance tools as smart contract templates" width="100%">
+</p>
 
-This is a Proof of concept that will articulate how Financial firms and brokers tokenize Assets can persist on the blockchain and be automated by finance contracts like options, future and Forwards contracts and reside in autonomous marketplaces.
+<p align="center">
+  
+<a href="https://github.com/CoinClubQuincy/XDC-Defi-Instruments/actions/workflows/build.yml"><img alt="build" src="https://github.com/CoinClubQuincy/XDC-Defi-Instruments/actions/workflows/build.yml/badge.svg"></a>  <img alt="network: XDC" src="https://img.shields.io/badge/network-XDC-2563eb">  <img alt="language: Solidity" src="https://img.shields.io/badge/language-Solidity-0e7490">  <img alt="status: proof of concept" src="https://img.shields.io/badge/status-proof%20of%20concept-b45309">  <img alt="license: mixed" src="https://img.shields.io/badge/license-mixed-475569">
+</p>
 
-This is a repository That contains a set of templates for automated Trade finance tools, these tools are traditional finance instruments but automated through a series of smart contracts to allow for anyone to have the ability to engage with tools that traditionally banks,broker-dealers, exchanges and other financial institutions would be capable of managing, now anyone can deploy and manage these tool from a smart phone and use the XDC crypto currency as a means of capital when engaging with these contracts to help further economic productivity autonomously 
+<p align="center">
+  <a href="#what-is-included">What is included</a> · <a href="#how-it-fits-together">How it fits together</a> · <a href="#try-it">Try it</a> · <a href="#what-is-tested">What is tested</a> · <a href="#known-issues">Known issues</a>
+</p>
 
-# Defi DApp 
-![BrokerageDapp-2](https://github.com/CoinClubQuincy/XDC-Automated-Asset-Management/assets/16103963/524c19c6-7f6b-43b1-a999-84c12b601b3f)
+This repository explores how tools that banks and broker-dealers run today could work as automated contracts on XDC: tokenized assets, signed agreements, forwards, futures, batches of assets, portfolios and a marketplace. A broker could run these with almost no infrastructure, and users could keep custody of their portfolios and move between brokers.
 
-### How Brokerage DApps can change trade finance on the XDC network
+> [!WARNING]
+> These are concept templates and have not been audited. Don't use them with real assets. Only part of the code is tested, and two files don't compile yet. See [What is tested](#what-is-tested).
 
-Most of the crypto space is quite familiar with the notion of NFTs and marketplaces. Typically, when people refer to these different types of instruments in Blockchain technology, they often refer shallowly to pictures being sold in the new online markets. This tends to create a misconception that NFTs are merely pictures, rather than a shared accounting tool to represent a particular object of ownership. NFTs are unique digital objects residing within smart contracts that can be used as units of account by shared applications. These objects can be referenced as derivative objects, such as a representation of a stock or a currency, or they could be abstract representations of some piece of code, like possessing a token to allow access to an application, using it as a key license, or even keeping track of scores.
+## What is included
 
-Previously, I wrote a smart contract to create a representation of an asset as a token in my article titled "A Conceptualization on How Brokers, Banks, and Financial Institutions can Tokenize Assets on XDC": 
+| Contract | Purpose | State |
+| --- | --- | --- |
+| [`Asset.sol`](contracts/Defi-Tools/Asset.sol) | Represents commodities, securities or currencies as tokens | Compiles |
+| [`Contract.sol`](contracts/Defi-Tools/Contract.sol) | Two-party agreement tied to a document hash, with counter-proposals | Tested. Signing has a known issue |
+| [`DocToken.sol`](contracts/Defi-Tools/DocToken.sol) | Registers documents as tokens | Compiles |
+| [`Forward.sol`](contracts/Defi-Tools/Forward.sol) | Forward contract | Compiles |
+| [`Future.sol`](contracts/Defi-Tools/Future.sol) | Futures contract | Compiles |
+| [`MultiAssetBatch.sol`](contracts/Defi-Tools/MultiAssetBatch.sol) | Bundles assets into one token | Compiles |
+| [`marketplace.sol`](contracts/Defi-Tools/marketplace.sol) | Listings, offers, auctions and escrow, forked from TronzitVeca's ERC1155-Marketplace, whose original repository is no longer online | Compiles |
+| [`portfolio.sol`](contracts/Defi-Tools/portfolio.sol) | User portfolio that trades through marketplaces | Compiles |
+| [`DelegatedExecutor.sol`](contracts/Defi-Tools/DelegatedExecutor.sol) | Sends funds on a user's behalf | Compiles |
+| [`GeneralDeployer.sol`](contracts/Defi-Tools/GeneralDeployer.sol) | Deploys contracts from bytecode and keeps a list | Compiles |
+| `Macro_Contracts.sol`, `Micro_Contracts.sol` | Early work on macro and micro parameters | **Doesn't compile yet** |
 
-In that article, I explained how a token can be used as a unit of account for traditional assets, similar to how assets can be represented in a database. What makes the token special on the blockchain is that it can be referenced by third-party applications like marketplaces and other DApps. In this article, I aim to articulate how new markets can be formed and how tokenized assets can be automated in these new marketplaces.
+[`pyscripts/`](pyscripts) has Python helpers for working with these contracts, and [`Documents/`](Documents) has notes on individual contracts. The full article is in [docs/WRITEUP.md](docs/WRITEUP.md).
 
-To demonstrate how you can automate assets on XDC, I forked an NFT marketplace repository from TronzitVeca’s ERC1155-Marketplace-Contract. Using my previous Assets contract and creating a portfolio contract, I managed to create a 4-contract DApp that enables the Marketplace to trade assets and a portfolio to manage assets for users, and allowing them to interact with the marketplace.
-A DApp like this is analogous to an application like Robinhood, but with three main differences:
+## How it fits together
 
-1. The infrastructure is self-hosted. So any broker interacting with this application does not need to set up or manage in infrastructure of the application
+```mermaid
+flowchart LR
+    B[Broker] -->|tokenizes| A[Asset]
+    B -->|creates for a user| P[Portfolio]
+    P -->|lists, buys, bids| M[Marketplace]
+    A --> M
+    M <-->|liquidity across brokers| M2[Another broker's marketplace]
+```
 
+![Brokerage DApp](https://github.com/CoinClubQuincy/XDC-Automated-Asset-Management/assets/16103963/524c19c6-7f6b-43b1-a999-84c12b601b3f)
 
-2. Users can self-custody assets via access to their portfolio contract, enabling them to move between different marketplaces and brokers with ease. The user has a portfolio generated by the original broker but can take that portfolio to other brokers while remaining in potential compliance rules established by the portfolio and marketplace.
+<details>
+<summary><strong>Diagrams of each instrument</strong></summary>
 
+**Asset**
 
-3. Broker-dealers and other firms can engage with each other via the decentralized marketplaces. Other broker-dealers can allow their users portfolios to interact with the marketplaces, providing more options to their users and additional liquidity in their marketplace.
+![Asset](https://user-images.githubusercontent.com/16103963/228897898-711805d3-ebfc-4194-aa93-b0f782b6ab4a.png)
 
-As more broker-dealers create their marketplaces tailored to their clientele, the number of financial participants and the necessary liquidity for exchanges will exponentially increase. Each broker can access the marketplaces of others, and clients from different brokers can access the assets of other marketplaces if liquidity is needed locally. 
+**Agreement**
 
-This enables easier and faster trading between partners and investors. Traditionally, trading between finance partners required intricate relationships and redundant record-keeping. With partners using the XDC network as a shared accounting system, asset transfers become significantly quicker, and partners don't need to sync extensively to ensure accurate recording. What used to take days can now happen in seconds.
-Similar to how social media enabled greater online connections, blockchain technology allows banks and financial institutions to trade over the internet on the blockchain with more parties than they could otherwise.
+![Agreement](https://user-images.githubusercontent.com/16103963/228897397-c59c7c8b-c6d3-4625-81dc-b3eb11585278.png)
 
-The future of blockchain technology is about connecting siloed entities that struggle with maintaining settlement and moving capital among multiple parties globally. With the XDC network and connected markets, the means of connection have never been easier. Marketplaces can reference liquidity from other marketplaces directly, brokers can interact without intermediaries, and investors can self-custody assets, enabling more people to participate directly. This reduces the cost and ease of access to financial services, with the barrier to entry lowered to having an internet connection.
+**Multi-asset batch**
 
-The more participant that operate in this way the more engagement this online economy can facilitate an the better the trade volume globally.
+![Multi-asset batch](https://github.com/CoinClubQuincy/XDC-BrokerageDapp/assets/16103963/b78911d2-1aea-4474-9e7d-686ab0f9a5ca)
 
-#  Tokenized Asset Contract
-![template contracts-2](https://user-images.githubusercontent.com/16103963/228897898-711805d3-ebfc-4194-aa93-b0f782b6ab4a.png)
+**Forward**
 
-### Assets
-Being able to tokenize assets, such as commodities, securities, derivatives, currencies, and other types of assets, can allow financial institutions like banks and brokerage firms to have easier means of managing, trading, and accounting for different assets, not only for themselves but also for their trade partners. These organizations can offset databasing costs by having the accounting of their assets on decentralized networks, making them easier to exchange and cheaper to operate. By moving hosting fees to transaction fees, the management of these assets becomes incredibly inexpensive and allows these organizations to focus more on their business model rather than on the hosting and operation of the systems that run their business. Having assets tokenized on decentralized networks allows for a shared accounting of unique assets that would otherwise be siloed in independent databases operated by individual organizations. The means of syncing information between organizations during an exchange or transfer can be slow and a manual process when dealing with international organizations. When these assets are tokenized and used as shared accounting tools, the means of exchanging ownership of different assets becomes simple. I built a proof-of-concept smart contract that takes the place of a broker who is not only tokenizing their possessed assets (asset certificates custodied under management) for their clients but also allows for these assets to be exchanged with other brokerage services. This contract is meant to illustrate that utilizing smart contracts and tokenization as a tool can allow for a simple means of management of these new assets, a cheaper operational cost, and a shared accounting tool that allows for engagement with anyone who also operates on the XDC network. This asset smart contract provides a means for administrators to manage the contract by possessing a particular token called the handlerToken. The handler token is a token that acts as a key and allows the broker to create new assets with predefined sets of attributes. When the handler deploys the contract the handler key is generated with a random integer not to interfere with the other asset tokens being generated, each token is paired to an integer.
+![Forward](https://user-images.githubusercontent.com/16103963/228897606-38ade8cb-1cac-4478-8c12-4a2b4c9fc77f.png)
 
-# Contract Agreement
-![template contracts](https://user-images.githubusercontent.com/16103963/228897397-c59c7c8b-c6d3-4625-81dc-b3eb11585278.png)
+**Future**
 
-### Automating Agreements with the XDC Network
+![Future](https://user-images.githubusercontent.com/16103963/228948322-9d968faf-4722-4ab6-b7f2-177222935b7b.png)
 
-The contract's terms and conditions are embedded in the code and stored on the blockchain. Once deployed, the contract becomes immutable, meaning that its contents cannot be altered or tampered with. This immutability ensures that the agreed-upon terms cannot be changed without the consent of all parties involved. Additionally, the contract's transparency allows all parties to view and verify its content, eliminating the need for trust in a central authority.
+</details>
 
-The contract assigns a document hash to a variable, which represents the agreement between the parties. The document hash serves as a unique identifier for the agreement's content and can be used to verify its integrity. By comparing the document hash provided by any party to the stored document hash, the contract can determine whether the agreement has been modified or tampered with.
+## Try it
 
-The contract enables parties to sign the agreement by interacting with the smart contract using their respective addresses. Once a party signs the contract, their address is recorded, indicating their consent and commitment to the agreement. This digital signature provides a non-repudiable proof of the party's involvement and prevents them from denying their participation later.
+```bash
+git clone https://github.com/CoinClubQuincy/XDC-Defi-Instruments.git
+cd XDC-Defi-Instruments
+git clone --depth 1 -b v4.9.6 https://github.com/OpenZeppelin/openzeppelin-contracts lib/openzeppelin-contracts
+git clone --depth 1 -b v1.9.7 https://github.com/foundry-rs/forge-std lib/forge-std
+forge test
+```
 
-The contract includes functions for counterproposals, allowing either party to suggest modifications to the agreement by reassigning the document hash. This automation eliminates the need for manual communication and revision of physical documents. Furthermore, the contract keeps track of the total number of counterproposals, enabling parties to track the negotiation process accurately.
+You need [Foundry](https://getfoundry.sh). Tests named `test_KnownIssue_*` pass because they pin a defect, so a passing run does not mean the defect is gone.
 
-The contract utilizes modifiers to control the execution of certain functions. For example, the PartyA_Sign and PartyB_Sign modifiers ensure that only Party A or Party B, respectively, can call the counter-proposal functions. The contractSigned modifier restricts further modifications to the agreement once both parties have signed, preventing any unauthorized changes.
+## What is tested
 
-These features provided by smart contracts on XDC offer increased efficiency, security, transparency, and automation to contractual agreements. They have the potential to revolutionize the way parties engage in business interactions, potentially reducing the need for intermediaries in certain scenarios.
+[`test/foundry/Instruments.t.sol`](test/foundry/Instruments.t.sol) has 5 tests of `Contract.sol` and runs in CI on every push, along with a build of everything except the two unfinished files.
 
+| Tested | Not tested |
+| --- | --- |
+| Hash verification and counter-proposals on `Contract.sol` | Behaviour of every other contract |
+| Only the matching party being able to counter | A real network, testnet or mainnet |
+| | An independent security audit |
 
+The older Hardhat tests in `test/` don't run as pinned: `package.json` is missing `@openzeppelin/contracts`, and its `ethers` 5 conflicts with the Hardhat toolbox. With the dependency added, the suite ended at 0 passing and 17 failing on those setup errors, so it says nothing yet about the contracts.
 
-# Multi Asset Batch Contract
-![MultiToken Batch Contract](https://github.com/CoinClubQuincy/XDC-BrokerageDapp/assets/16103963/b78911d2-1aea-4474-9e7d-686ab0f9a5ca)
+## Known issues
 
+| Issue | Effect | Test |
+| --- | --- | --- |
+| Nobody can sign an agreement | `sign_proposal()` requires both signatures to exist before anyone can sign | `test_KnownIssue_NobodyCanSignBecauseSigningRequiresBothSignatures` |
+| `ContractDeployer` always reverts | The tokens are minted to the deployer contract, which can't receive them. Deploying `Contract` directly works | `test_KnownIssue_ContractDeployerAlwaysReverts` |
+| Two files don't compile | `Macro_Contracts.sol` and `Micro_Contracts.sol` are excluded in `foundry.toml` | `forge build` |
+| Licenses are mixed | Files declare GPL-3.0, MIT or UNLICENSED in their headers. Check each file before reuse | Read from the code |
 
-# Forward Contract 
-![template contracts-3](https://user-images.githubusercontent.com/16103963/228897606-38ade8cb-1cac-4478-8c12-4a2b4c9fc77f.png)
+<details>
+<summary><strong>More XDC projects</strong></summary>
 
-# Futures Contract 
-![template contracts-5](https://user-images.githubusercontent.com/16103963/228948322-9d968faf-4722-4ab6-b7f2-177222935b7b.png)
+| Group | Project | What it is |
+| --- | --- | --- |
+| Standards | [XRC-SHARES](https://github.com/CoinClubQuincy/XRC-SHARES) | Dividend-paying NFT shares and SPLITS for a DApp |
+| Standards | [XRCDividendPlus](https://github.com/CoinClubQuincy/XRCDividendPlus) | Dividend-paying XRC-20 token |
+| Treasury and finance | [Multi-Sig-Treasury](https://github.com/CoinClubQuincy/Multi-Sig-Treasury) | Treasury controlled by tokenized keys |
+| Treasury and finance | [XRC-Airdrop](https://github.com/CoinClubQuincy/XRC-Airdrop) | Self-run token airdrop |
+| Treasury and finance | [XRC-Credit](https://github.com/CoinClubQuincy/XRC-Credit) | Debt contract skeleton |
+| Identity and access | [LoginMFAContract](https://github.com/CoinClubQuincy/LoginMFAContract) | Login with a password and an NFT |
+| Identity and access | [PrivateAccessToken](https://github.com/CoinClubQuincy/PrivateAccessToken) | Token-gated contract data demo |
+| Identity and access | [Delegated_Authority](https://github.com/CoinClubQuincy/Delegated_Authority) | KYC notary proof of concept |
+| Learning and libraries | [XDC-LemonadeStand](https://github.com/CoinClubQuincy/XDC-LemonadeStand) | Workshop DApp built on XRC-SHARES |
+| Learning and libraries | [Non-Financial-SmartContracts](https://github.com/CoinClubQuincy/Non-Financial-SmartContracts) | Games, inventory, keys and on-chain repositories |
+| Tools | [XDC_Python_SDK_V1](https://github.com/CoinClubQuincy/XDC_Python_SDK_V1) | Python client for the XDC JSON-RPC API |
+| Tools | [PrivateXDCNode_SetupScript](https://github.com/CoinClubQuincy/PrivateXDCNode_SetupScript) | Private XDC network setup scripts |
+| Tools | [WebApp_to_XDCPay](https://github.com/CoinClubQuincy/WebApp_to_XDCPay) | Web app to XDCPay tutorial |
+| Multi-chain | [CoinClub_Framework](https://github.com/CoinClubQuincy/CoinClub_Framework) | Python library with an XDC adapter |
+| Interfaces | [Contract_Interface_Model_Language](https://github.com/CoinClubQuincy/Contract_Interface_Model_Language) | Interface documents for smart contracts and APIs |
 
+</details>
+
+## License
+
+Mixed. See the SPDX header of each file.
