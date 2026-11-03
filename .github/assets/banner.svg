@@ -17,5 +17,5 @@
   <text x="493.0" y="254" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#e2e8f0">forwards and futures</text>
   <rect x="643" y="222" width="167" height="50" rx="10" fill="#ffffff" fill-opacity=".06" stroke="#60a5fa" stroke-opacity=".45"/>
   <text x="726.5" y="254" text-anchor="middle" font-family="ui-monospace, SFMono-Regular, Menlo, Consolas, monospace" font-size="19" fill="#e2e8f0">marketplace</text>
-  <text x="64" y="318" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif" font-size="19" fill="#94a3b8">Proof of concept. Most contracts compile, few are tested. Not audited.</text>
+  <text x="64" y="318" font-family="ui-sans-serif, -apple-system, BlinkMacSystemFont, &quot;Segoe UI&quot;, Helvetica, Arial, sans-serif" font-size="19" fill="#94a3b8">Proof of concept. Tested locally. Not audited and not run on a real network.</text>
 </svg>
