@@ -97,9 +97,10 @@ contract Future is ERC1155, ReentrancyGuard {
         Asset.safeBatchTransferFrom(address(this), msg.sender, Tokens, TokenAmmounts, "");
         return true;
     }
-    // create sales function to but contract 
-    function initiateContract()public payable bought nonReentrant returns(bool){
+    // Buys the contract. The buyer names the terms they read, so the listing can't change while the purchase is pending
+    function initiateContract(uint _expectedDate,uint _expectedPrice)public payable bought nonReentrant returns(bool){
         require(listed == true, "contract is not listed");
+        require(_expectedDate == realeaseDate && _expectedPrice == price, "the terms have changed");
         require(block.timestamp < realeaseDate, "the date of maturity has passed");
         uint total = Deposit + currentFee;
         require(msg.value>=total,"funds note enough to purchace contract");

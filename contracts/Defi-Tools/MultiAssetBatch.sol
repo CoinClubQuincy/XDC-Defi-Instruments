@@ -82,10 +82,23 @@ contract MultiAssetBatch is ERC1155, ReentrancyGuard{
         tokenIDNumber = 0;
         for(uint i; i < total;i++){
             Assets memory asset = assetID[i];
+            if(asset.assetContract == address(0)){
+                continue;
+            }
             delete assetID[i];
             delete assetContract[asset.assetContract];
             ERC1155(asset.assetContract).safeBatchTransferFrom(address(this),msg.sender, asset.assetID, asset.amount, "");
         }
+        return true;
+    }
+
+    // Sends one token contract's assets to the caller, in case another contract in the batch can't be moved
+    function redeemAsset(uint _index)public handler nonReentrant returns(bool){
+        Assets memory asset = assetID[_index];
+        require(asset.assetContract != address(0), "No asset at that index");
+        delete assetID[_index];
+        delete assetContract[asset.assetContract];
+        ERC1155(asset.assetContract).safeBatchTransferFrom(address(this),msg.sender, asset.assetID, asset.amount, "");
         return true;
     }
 

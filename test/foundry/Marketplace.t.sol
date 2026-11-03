@@ -282,8 +282,8 @@ contract MarketplaceTest is Test {
         vm.startPrank(admin);
         vm.expectRevert("updateFee: Shares cannot be above 100");
         market.updateFeeAndRecipient(takers, shares);
-        vm.expectRevert("updateFee: Fee cannot be above 100");
-        market.updateTotalFee(101);
+        vm.expectRevert("updateFee: Fee is above the limit");
+        market.updateTotalFee(21);
         vm.expectRevert("updateFee: Not match");
         market.updateFeeAndRecipient(takers, new uint[](1));
         takers[1] = address(0);
@@ -348,25 +348,204 @@ contract MarketplaceTest is Test {
         market.placeBid{value: 1 ether}(id);
         vm.warp(startDate + 2 * DAY + 1);
         vm.prank(seller);
-        market.claimAuction(id);
+        assertFalse(market.claimAuction(id));
+        assertEq(market.escrowAmount(seller), 0.95 ether);
+        assertEq(token.balanceOf(address(market), 1), 2);
+        vm.prank(buyer);
+        market.collectAuctionTokens(id, buyer);
         assertEq(token.balanceOf(buyer, 1), 2);
     }
 
-    function test_WinnerIsRefundedIfTheTokensAreGone() public {
+    function test_AuctionTokensAreHeldUntilItCloses() public {
+        uint id = auctionOf(false);
+        assertEq(token.balanceOf(address(market), 1), 2);
+        assertEq(token.balanceOf(seller, 1), 8);
+    }
+
+    function test_AuctionNeedsApproval() public {
+        vm.startPrank(seller);
+        token.setApprovalForAll(address(market), false);
+        vm.expectRevert("ERC1155: caller is not token owner or approved");
+        market.createAuction(address(token), 1, 2, 1 ether, 1, startDate, 2 * DAY, false);
+        vm.stopPrank();
+    }
+
+    function test_SellerCannotBackOutOfAnAuction() public {
         uint id = auctionOf(false);
         vm.warp(startDate);
         vm.prank(buyer);
         market.placeBid{value: 1 ether}(id);
-        vm.prank(seller);
+        vm.startPrank(seller);
         token.setApprovalForAll(address(market), false);
+        token.safeTransferFrom(seller, buyer2, 1, 8, "");
+        vm.stopPrank();
+        vm.warp(startDate + 2 * DAY + 1);
+        vm.prank(buyer);
+        assertTrue(market.claimAuction(id));
+        assertEq(token.balanceOf(buyer, 1), 2);
+        assertEq(market.escrowAmount(seller), 0.95 ether);
+    }
+
+    function test_CancelReturnsTheTokens() public {
+        uint id = auctionOf(false);
+        vm.warp(startDate + 2 * DAY + 1);
+        vm.prank(seller);
+        market.cancelAuction(id);
+        assertEq(token.balanceOf(seller, 1), 10);
+        assertEq(token.balanceOf(address(market), 1), 0);
+    }
+
+    function test_AWinnerRefusingTheTokensStillPays() public {
+        uint id = auctionOf(false);
+        RefusesTokens winner = new RefusesTokens();
+        vm.deal(address(winner), 5 ether);
+        vm.warp(startDate);
+        winner.callWith(address(market), 5 ether, abi.encodeCall(Marketplace.placeBid, (id)));
+        vm.warp(startDate + 2 * DAY + 1);
+        winner.callWith(address(market), 0, abi.encodeCall(Marketplace.claimAuction, (id)));
+
+        assertEq(market.escrowAmount(seller), 4.75 ether);
+        assertEq(market.escrowAmount(address(winner)), 0);
+        assertEq(token.balanceOf(address(market), 1), 2);
+
+        winner.callWith(address(market), 0, abi.encodeCall(Marketplace.collectAuctionTokens, (id, buyer2)));
+        assertEq(token.balanceOf(buyer2, 1), 2);
+    }
+
+    function test_TheCreatorsCloseNeverRunsTheWinnersCode() public {
+        uint id = auctionOf(false);
+        BurnsGasOnTokens winner = new BurnsGasOnTokens();
+        vm.deal(address(winner), 5 ether);
+        vm.warp(startDate);
+        winner.callWith(address(market), 5 ether, abi.encodeCall(Marketplace.placeBid, (id)));
+        vm.warp(startDate + 2 * DAY + 1);
+        vm.prank(seller);
+        assertFalse(market.claimAuction(id));
+        assertEq(market.escrowAmount(seller), 4.75 ether);
+        assertEq(token.balanceOf(address(market), 1), 2);
+    }
+
+    function test_OnlyTheWinnerCollectsAndOnlyOnce() public {
+        uint id = auctionOf(false);
+        vm.warp(startDate);
+        vm.prank(buyer);
+        market.placeBid{value: 1 ether}(id);
+        vm.warp(startDate + 2 * DAY + 1);
+        vm.prank(seller);
+        market.claimAuction(id);
+
+        vm.prank(seller);
+        vm.expectRevert("collectAuctionTokens: Only the winner can collect");
+        market.collectAuctionTokens(id, seller);
+
+        vm.prank(buyer);
+        market.collectAuctionTokens(id, buyer);
+        assertEq(token.balanceOf(buyer, 1), 2);
+
+        vm.prank(buyer);
+        vm.expectRevert("collectAuctionTokens: Nothing is held for this auction");
+        market.collectAuctionTokens(id, buyer);
+    }
+
+    function test_AWinnerIsRefundedIfTheTokenNoLongerExists() public {
+        uint id = auctionOf(false);
+        vm.warp(startDate);
+        vm.prank(buyer);
+        market.placeBid{value: 1 ether}(id);
+        vm.etch(address(token), "");
         vm.warp(startDate + 2 * DAY + 1);
         vm.prank(buyer);
         assertFalse(market.claimAuction(id));
         assertEq(market.escrowAmount(buyer), 1 ether);
         assertEq(market.escrowAmount(seller), 0);
+    }
+
+    function test_AWonAuctionIsNotBlockedByAPausedToken() public {
+        PausableToken paused = new PausableToken();
+        paused.mint(seller, 1, 2);
+        vm.startPrank(seller);
+        paused.setApprovalForAll(address(market), true);
+        uint id = market.auctionId();
+        market.createAuction(address(paused), 1, 2, 1 ether, 1, startDate, 2 * DAY, false);
+        vm.stopPrank();
+        vm.warp(startDate);
         vm.prank(buyer);
-        market.withdrawEscrow(1 ether);
-        assertEq(buyer.balance, 100 ether);
+        market.placeBid{value: 1 ether}(id);
+        paused.setPaused(true);
+        vm.warp(startDate + 2 * DAY + 1);
+        vm.prank(buyer);
+        assertFalse(market.claimAuction(id));
+        assertEq(market.escrowAmount(seller), 0.95 ether);
+
+        vm.prank(buyer);
+        vm.expectRevert("paused");
+        market.collectAuctionTokens(id, buyer);
+
+        paused.setPaused(false);
+        vm.prank(buyer);
+        market.collectAuctionTokens(id, buyer);
+        assertEq(paused.balanceOf(buyer, 1), 2);
+    }
+
+    function test_AuctionLengthIsLimited() public {
+        vm.startPrank(seller);
+        vm.expectRevert("createAuction: The duration is too long");
+        market.createAuction(address(token), 1, 1, 1 ether, 1, startDate, type(uint256).max, true);
+        vm.expectRevert("createAuction: The start date is too far away");
+        market.createAuction(address(token), 1, 1, 1 ether, 1, type(uint256).max, 2 * DAY, false);
+        vm.stopPrank();
+    }
+
+    function test_TheMarketplaceRefusesStrayTokens() public {
+        vm.prank(seller);
+        vm.expectRevert("this contract does not accept tokens");
+        token.safeTransferFrom(seller, address(market), 1, 1, "");
+        vm.prank(seller);
+        vm.expectRevert("this contract does not accept tokens");
+        market.transfer(address(market), address(token), 1, 1);
+    }
+
+    function test_FeesCannotChangeUnderAnOpenListing() public {
+        uint sale = list();
+        vm.prank(admin);
+        market.updateTotalFee(20);
+        vm.prank(buyer);
+        market.buyListToken{value: 1 ether}(sale);
+        assertEq(market.escrowAmount(seller), 0.95 ether);
+        assertEq(market.feeReserve(), 0.05 ether);
+    }
+
+    function test_FeesCannotChangeUnderAnOpenOffer() public {
+        uint sale = list();
+        vm.prank(buyer);
+        market.makeOffer{value: 1 ether}(sale, 1 ether);
+        vm.prank(admin);
+        market.updateTotalFee(20);
+        vm.prank(seller);
+        market.acceptOffer(sale, 0);
+        assertEq(market.escrowAmount(seller), 0.95 ether);
+    }
+
+    function test_FeesCannotChangeUnderAnOpenAuction() public {
+        uint id = auctionOf(false);
+        vm.warp(startDate);
+        vm.prank(buyer);
+        market.placeBid{value: 1 ether}(id);
+        vm.prank(admin);
+        market.updateTotalFee(20);
+        vm.warp(startDate + 2 * DAY + 1);
+        vm.prank(seller);
+        market.claimAuction(id);
+        assertEq(market.escrowAmount(seller), 0.95 ether);
+    }
+
+    function test_NewListingsUseTheNewFee() public {
+        vm.prank(admin);
+        market.updateTotalFee(20);
+        uint sale = list();
+        vm.prank(buyer);
+        market.buyListToken{value: 1 ether}(sale);
+        assertEq(market.escrowAmount(seller), 0.8 ether);
     }
 
     function test_ABidderThatRefusesMoneyCannotBlockTheAuction() public {
@@ -530,6 +709,7 @@ contract MarketplaceTest is Test {
         for (uint i = 0; i < total; i++) {
             act(uint(keccak256(abi.encode(seed, i))), bidders);
             assertEq(address(market).balance, owed(people) + activeBids());
+            assertEq(token.balanceOf(address(market), 1), tokensInAuctions());
         }
     }
 
@@ -550,7 +730,7 @@ contract MarketplaceTest is Test {
         uint sale = market.salesId() == 0 ? 0 : (roll >> 16) % market.salesId();
         uint auctionNumber = market.auctionId() == 0 ? 0 : (roll >> 24) % market.auctionId();
         uint offer = (roll >> 32) % 3;
-        uint action = (roll >> 40) % 11;
+        uint action = (roll >> 40) % 12;
 
         if (action == 0) {
             list();
@@ -572,8 +752,18 @@ contract MarketplaceTest is Test {
             tryCall(who, amount, abi.encodeCall(Marketplace.placeBid, (auctionNumber)));
         } else if (action == 9) {
             tryCall(who, 0, abi.encodeCall(Marketplace.claimAuction, (auctionNumber)));
+        } else if (action == 10) {
+            tryCall(who, 0, abi.encodeCall(Marketplace.collectAuctionTokens, (auctionNumber, who)));
         } else {
             vm.warp(block.timestamp + 1 hours + (roll >> 48) % (2 * DAY));
+        }
+    }
+
+    function tokensInAuctions() internal view returns (uint total) {
+        for (uint i = 0; i < market.auctionId(); i++) {
+            total += market.viewAuction(i).amountOfToken;
+            (,,, uint held) = market.heldTokens(i);
+            total += held;
         }
     }
 
@@ -741,6 +931,7 @@ contract PortfolioTest is Test {
         token.mint(address(portfolio), 1, 1);
         uint start = block.timestamp + 1;
         vm.startPrank(user);
+        portfolio.approveMarketplace(address(token), true);
         portfolio.createAuction(address(token), 1, 1, 1 ether, 1, start, 2 days, false);
         portfolio.createList(address(token), 1, 1, 2 hours, 1 ether);
         portfolio.cancelList(0);
@@ -769,6 +960,37 @@ contract PortfolioTest is Test {
         vm.prank(user);
         vm.expectRevert("broker does not hold handler token");
         portfolio.resetOwner(user);
+    }
+
+    function test_AZeroTransferCannotBreakKeyRecovery() public {
+        address stranger = makeAddr("stranger");
+        uint key = portfolio.handlerToken();
+        vm.prank(stranger);
+        portfolio.safeTransferFrom(stranger, friend, key, 0, "");
+        assertEq(portfolio.currentOwner(), user);
+
+        vm.prank(brokerKey);
+        portfolio.resetOwner(friend);
+        assertEq(portfolio.balanceOf(friend, key), 1);
+        assertEq(portfolio.balanceOf(user, key), 0);
+    }
+
+    function test_PortfolioCollectsHeldAuctionTokens() public {
+        uint start = block.timestamp + 1;
+        vm.prank(seller);
+        market.createAuction(address(token), 1, 2, 1 ether, 0.1 ether, start, 2 days, false);
+        vm.warp(start);
+        vm.prank(user);
+        portfolio.placeBid{value: 1 ether}(0);
+        vm.warp(start + 2 days + 1);
+        vm.prank(seller);
+        market.claimAuction(0);
+        vm.prank(friend);
+        vm.expectRevert("user does not hold handler token");
+        portfolio.collectAuctionTokens(0, friend);
+        vm.prank(user);
+        portfolio.collectAuctionTokens(0, address(portfolio));
+        assertEq(token.balanceOf(address(portfolio), 1), 2);
     }
 
     function test_BrokerCanStillResetAfterTheKeyMoved() public {

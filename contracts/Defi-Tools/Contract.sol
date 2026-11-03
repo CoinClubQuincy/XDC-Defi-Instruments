@@ -74,9 +74,11 @@ contract Contract is ERC1155 {
         emit proposal(" A counter proposal has been made by: ", msg.sender);
     }
     //Parties and witnesses each sign once. The fourth signature completes the contract.
-    //An address signs for one role only, so nobody can witness their own agreement
-    function sign_proposal()public returns(bool,string memory){
+    //An address signs for one role only. The signer names the document they read, so a counter proposal
+    //can't collect a signature that was meant for an earlier one
+    function sign_proposal(string memory _expectedDocumentHash)public returns(bool,string memory){
         require(contractComplete == false, "contract has already been signed");
+        require(keccak256(bytes(_expectedDocumentHash)) == keccak256(bytes(DocumentHash)), "the document has changed");
         require(msg.sender != PartyASignature && msg.sender != PartyBSignature && msg.sender != WitnessASignature && msg.sender != WitnessBSignature, "you have already signed");
 
         string memory signed;

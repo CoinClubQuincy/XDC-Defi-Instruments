@@ -39,7 +39,7 @@ contract ForwardTest is Test {
     function test_FullSaleAndRedeem() public {
         list();
         vm.prank(buyer);
-        forward.buyForwardsToken{value: 1.5 ether}();
+        forward.buyForwardsToken{value: 1.5 ether}(address(token), 7, date, 1 ether);
         assertEq(buyer.balance, 9 ether);
         assertTrue(forward.contractSold());
 
@@ -61,7 +61,7 @@ contract ForwardTest is Test {
     function test_ForwardRedeemsOnlyOnce() public {
         list();
         vm.prank(buyer);
-        forward.buyForwardsToken{value: 1 ether}();
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 1 ether);
         vm.warp(date);
         vm.startPrank(buyer);
         forward.redeemForward();
@@ -73,7 +73,7 @@ contract ForwardTest is Test {
     function test_ForwardCannotBeTransferred() public {
         list();
         vm.prank(buyer);
-        forward.buyForwardsToken{value: 1 ether}();
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 1 ether);
         vm.prank(buyer);
         vm.expectRevert("forwards are non-transferable");
         forward.safeTransferFrom(buyer, seller, 0, 1, "");
@@ -85,7 +85,7 @@ contract ForwardTest is Test {
         vm.expectRevert("contract has already been activated");
         forward.deployAssets(address(token), 7, date + 1, 2 ether);
         vm.prank(buyer);
-        forward.buyForwardsToken{value: 1 ether}();
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 1 ether);
         vm.prank(seller);
         vm.expectRevert("contract has been sold");
         forward.deployAssets(address(token), 7, date + 1, 2 ether);
@@ -98,13 +98,51 @@ contract ForwardTest is Test {
         assertEq(token.balanceOf(seller, 7), 1);
         vm.prank(buyer);
         vm.expectRevert("contract has not been activated");
-        forward.buyForwardsToken{value: 1 ether}();
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 1 ether);
+    }
+
+    function test_APendingPurchaseFailsIfTheListingChanges() public {
+        list();
+        MockToken worthless = new MockToken();
+        worthless.mint(seller, 1, 1);
+        vm.startPrank(seller);
+        forward.cancelListing();
+        worthless.setApprovalForAll(address(forward), true);
+        forward.deployAssets(address(worthless), 1, date, 1 ether);
+        vm.stopPrank();
+
+        vm.prank(buyer);
+        vm.expectRevert("the terms have changed");
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 1 ether);
+        assertEq(buyer.balance, 10 ether);
+    }
+
+    function test_EachTermIsChecked() public {
+        list();
+        vm.startPrank(buyer);
+        vm.expectRevert("the terms have changed");
+        forward.buyForwardsToken{value: 1 ether}(address(1), 7, date, 1 ether);
+        vm.expectRevert("the terms have changed");
+        forward.buyForwardsToken{value: 1 ether}(address(token), 8, date, 1 ether);
+        vm.expectRevert("the terms have changed");
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date + 1, 1 ether);
+        vm.expectRevert("the terms have changed");
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 2 ether);
+        vm.stopPrank();
+    }
+
+    function test_CannotBuyAfterMaturity() public {
+        list();
+        vm.warp(date);
+        vm.prank(buyer);
+        vm.expectRevert("the date of maturity has passed");
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 1 ether);
     }
 
     function test_SoldAssetCannotBeTakenBack() public {
         list();
         vm.prank(buyer);
-        forward.buyForwardsToken{value: 1 ether}();
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 1 ether);
         vm.prank(seller);
         vm.expectRevert("contract has been sold");
         forward.cancelListing();
@@ -114,10 +152,10 @@ contract ForwardTest is Test {
         list();
         vm.startPrank(buyer);
         vm.expectRevert("funds not enough to purchase contract");
-        forward.buyForwardsToken{value: 0.5 ether}();
-        forward.buyForwardsToken{value: 1 ether}();
+        forward.buyForwardsToken{value: 0.5 ether}(address(token), 7, date, 1 ether);
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 1 ether);
         vm.expectRevert("contract has been sold");
-        forward.buyForwardsToken{value: 1 ether}();
+        forward.buyForwardsToken{value: 1 ether}(address(token), 7, date, 1 ether);
         vm.stopPrank();
     }
 
@@ -173,7 +211,7 @@ contract FutureTest is Test {
     function buy() internal {
         list();
         vm.prank(buyer);
-        future.initiateContract{value: 1.1 ether}();
+        future.initiateContract{value: 1.1 ether}(date, 10 ether);
     }
 
     function test_ConstructorChecksItsInput() public {
@@ -230,7 +268,7 @@ contract FutureTest is Test {
     function test_InitiateRefundsChange() public {
         list();
         vm.prank(buyer);
-        future.initiateContract{value: 5 ether}();
+        future.initiateContract{value: 5 ether}(date, 10 ether);
         assertEq(buyer.balance, 98.9 ether);
     }
 
@@ -306,10 +344,25 @@ contract FutureTest is Test {
         assertEq(token.balanceOf(address(future), 1), 1);
 
         vm.prank(buyer);
-        future.initiateContract{value: 2.2 ether}();
+        future.initiateContract{value: 2.2 ether}(date, 20 ether);
         vm.prank(seller);
         vm.expectRevert("contract has been sold");
         future.listSale(date, 1 ether);
+    }
+
+    function test_APendingPurchaseFailsIfTheTermsChange() public {
+        list();
+        vm.prank(seller);
+        future.listSale(block.timestamp + 1, 10 ether);
+        vm.prank(buyer);
+        vm.expectRevert("the terms have changed");
+        future.initiateContract{value: 1.1 ether}(date, 10 ether);
+
+        vm.prank(seller);
+        future.listSale(date, 20 ether);
+        vm.prank(buyer);
+        vm.expectRevert("the terms have changed");
+        future.initiateContract{value: 2.2 ether}(date, 10 ether);
     }
 
     function test_UnsoldAssetsCanBeTakenBack() public {
@@ -319,7 +372,7 @@ contract FutureTest is Test {
         assertEq(token.balanceOf(seller, 1), 1);
         vm.prank(buyer);
         vm.expectRevert("contract is not listed");
-        future.initiateContract{value: 1.1 ether}();
+        future.initiateContract{value: 1.1 ether}(date, 10 ether);
     }
 
     function test_CannotBuyAfterTheDate() public {
@@ -327,7 +380,7 @@ contract FutureTest is Test {
         vm.warp(date);
         vm.prank(buyer);
         vm.expectRevert("the date of maturity has passed");
-        future.initiateContract{value: 1.1 ether}();
+        future.initiateContract{value: 1.1 ether}(date, 10 ether);
     }
 
     function test_OnlyTheHandlerRuns() public {
@@ -359,7 +412,7 @@ contract FutureTest is Test {
         vm.deal(buyer, deposit + feeAmount + total);
         uint start = buyer.balance;
         vm.prank(buyer);
-        f.initiateContract{value: deposit + feeAmount}();
+        f.initiateContract{value: deposit + feeAmount}(date, total);
         assertEq(address(f).balance, deposit + feeAmount);
 
         vm.warp(completes ? date : date + WINDOW + 1);
@@ -398,6 +451,41 @@ contract MultiAssetBatchTest is Test {
     function one(uint value) internal pure returns (uint[] memory list) {
         list = new uint[](1);
         list[0] = value;
+    }
+
+    function test_OneAssetCanLeaveWhenAnotherIsStuck() public {
+        PausableToken stuck = new PausableToken();
+        stuck.mint(owner, 1, 1);
+        vm.startPrank(owner);
+        stuck.setApprovalForAll(address(batch), true);
+        batch.addAssets(address(stuck), "Stuck", one(1), one(1));
+        batch.addAssets(address(tokenA), "A", one(1), one(5));
+        vm.stopPrank();
+        stuck.setPaused(true);
+
+        vm.startPrank(owner);
+        vm.expectRevert("paused");
+        batch.redeemAssets();
+        batch.redeemAsset(1);
+        assertEq(tokenA.balanceOf(owner, 1), 10);
+        vm.expectRevert("No asset at that index");
+        batch.redeemAsset(1);
+        vm.stopPrank();
+
+        stuck.setPaused(false);
+        vm.prank(owner);
+        batch.redeemAssets();
+        assertEq(stuck.balanceOf(owner, 1), 1);
+        assertEq(batch.tokenIDNumber(), 0);
+    }
+
+    function test_RedeemingOneAssetNeedsAKey() public {
+        vm.startPrank(owner);
+        batch.addAssets(address(tokenA), "A", one(1), one(5));
+        vm.stopPrank();
+        vm.prank(stranger);
+        vm.expectRevert("user does not hold handler token");
+        batch.redeemAsset(0);
     }
 
     function test_AddsANewAsset() public {

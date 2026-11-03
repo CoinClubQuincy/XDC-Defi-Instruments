@@ -99,11 +99,11 @@ forge create contracts/Defi-Tools/Asset.sol:Asset --rpc-url https://rpc.apothem.
 
 ### How money moves in the marketplace
 
-Tokens stay with the seller until a sale, so the seller approves the marketplace on the token contract first. Sale money, replaced bids and fee shares wait in `escrowAmount`, and each person collects their own with `withdrawEscrow`. One bad recipient can't block a sale or an auction. Money behind an open offer is locked until the offer is accepted or cancelled.
+Listed tokens stay with the seller until a sale, and auctioned tokens are held by the marketplace until the auction closes. Either way, the seller approves the marketplace on the token contract first. Sale money, replaced bids and fee shares wait in `escrowAmount`, and each person collects their own with `withdrawEscrow`. One recipient who can't receive money can't block a sale or an auction. Money behind an open offer is locked until the offer is accepted or cancelled.
 
 ## What is tested
 
-[`test/foundry`](test/foundry) has 129 tests, including 3 fuzz tests, and runs in CI on every push.
+[`test/foundry`](test/foundry) has 152 tests, including 3 fuzz tests, and runs in CI on every push.
 
 | File | Tests | Covers |
 | --- | --- | --- |
@@ -121,6 +121,13 @@ Contracts already deployed are unaffected and keep the old behaviour. Most of th
 
 - `acceptOffer` paid the buyer instead of the seller. It now pays the seller.
 - `claimAuction` could be repeated, paying out of other people's money. An auction now closes once, and the creator can close it too.
+- Auctioned tokens are now held by the marketplace from the start, so a seller can't back out. The creator is paid when the auction closes, even if the winner's address refuses the tokens. The tokens then wait for `collectAuctionTokens`, which can send them to another address. This closes a way to win an auction, refuse the tokens and get the bid back.
+- A sale or auction now keeps the fee in force when it was created, and the fee limit is now 20% instead of 100%.
+- Auctions can last at most a year and start at most a year away. A very long duration could lock a bid for good.
+- A transfer of zero keys could point a portfolio's `currentOwner` at the wrong address, which broke broker recovery. Anyone could do this.
+- `buyForwardsToken(token, id, date, price)`, `initiateContract(date, price)` and `sign_proposal(documentHash)` now name what the caller read. A handler or party can no longer change the terms while a purchase or signature is pending.
+- A `Forward` can no longer be bought after its maturity date.
+- `MultiAssetBatch` has a new `redeemAsset`, so one stuck token contract can't trap the rest.
 - Sales could be bought more than once and after their deadline. Sales now end when sold, and overpayment is refunded.
 - Sale money, replaced bids and fee shares now go to `escrowAmount` instead of being sent straight away, so sellers and recipients call `withdrawEscrow`.
 - Fee money with no recipient used to be stuck. It now goes to `feeReserve`, collected with `withdrawFeeReserve`. Fee settings have limits.
@@ -138,7 +145,7 @@ Contracts already deployed are unaffected and keep the old behaviour. Most of th
 
 - `Contract`: signing works, with each role signing once. The fourth signature completes it, and a counter-proposal clears signatures. The constructor takes a `_holder`, which also makes `ContractDeployer` work.
 - `DelegateExecutor`: `delegateCall` let anyone run outside code as this contract, so it is gone, replaced by a key-only `executeCall`. The password is gone too, because anything sent to a public chain is public. `SendXRC1155` works and token transfers are checked.
-- `Forward`: terms can't change after listing, and a forward redeems once and can't be transferred. New `cancelListing` returns an unsold asset.
+- `Forward`: a pending purchase fails if the terms change, and a forward redeems once and can't be transferred. New `cancelListing` returns an unsold asset.
 - `Future`: the constructor always reverted, the handler and future tokens shared an ID, and the handler could take the deposit at any time. It is rewritten around those rules, with new `cancelSale`, `inDefault`, `handlerBalance`, `listed` and `divisable`. The constructor takes one token address, and `AssetTokens` and `TokenList` are gone.
 - `MultiAssetBatch`: adding and redeeming always reverted. Both work now, the limit is exact, and redeeming empties the batch.
 - `Document`: the first document's token was also a handler key. They now have different IDs.
@@ -158,7 +165,11 @@ The notes in [`Documents/`](Documents) and the article in [`docs/WRITEUP.md`](do
 | --- | --- |
 | Brokers have real power | An `Asset` handler can move or destroy anyone's asset. A marketplace key holder can reset a portfolio's owner. That is the design, so a broker must be trusted |
 | Any one key is enough | Any `MultiAssetBatch` or `DelegateExecutor` key can take everything the contract holds, and `executeCall` can do anything |
-| Marketplace sales rely on approvals | Tokens stay with the seller, so a seller can back out of an auction by moving them. The winner is refunded, but the sale doesn't happen |
+| Listed sales rely on approvals | Listed tokens stay with the seller. If the seller moves them, a buyer's purchase fails and the buyer keeps their money. Listings are not guaranteed to be fillable |
+| A broker can raise fees for new listings | The fee is fixed when a listing is created, but a key holder can raise it up to 20% just before one is created. Check `listFee` after listing |
+| A key holder can change a portfolio's marketplace | `changeMarketplace` also changes which brokers can recover it. Someone who steals the key can lock the original broker out |
+| One person can hold several `Contract` roles | Roles are tokens, so one person with two addresses can sign as both a party and a witness |
+| `Future` terms include a default window | `redemptionTimeLimit` can be as short as 1 second. Read it before buying, because missing it loses the deposit |
 | `Forward` and `Future` have one buyer | Each contract handles one sale. Deploy a new one for each deal |
 | Buyers must check the token | `Forward` and `Future` accept any token contract the handler names. A fake token passes every check |
 | Listing loops grow | `viewAllAssetsAndBids` reads every sale. It is meant for off-chain reads |

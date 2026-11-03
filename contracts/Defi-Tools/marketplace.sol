@@ -9,11 +9,15 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 /// @title 1155 Marketplace
 /// @author R Quincy Jones
 /// @notice This contract is a for from https://github.com/TronzitVeca/ERC1155-Marketplace-Contract that acts as a token marketplace
-/// @dev This contract works with the profile contract. Tokens stay with the seller until a sale, so
-/// the seller must approve this contract on the token. Sale money waits in escrowAmount, and each
-/// person collects their own with withdrawEscrow, so one bad recipient can't block a sale or auction.
+/// @dev This contract works with the profile contract. Listed tokens stay with the seller until a sale,
+/// and auctioned tokens are held here until the auction closes, so the seller must approve this contract
+/// on the token. Sale money waits in escrowAmount, and each person collects their own with withdrawEscrow.
+/// A sale or auction keeps the fee in force when it was created.
 
 contract Marketplace is ERC1155, ReentrancyGuard {
+
+    uint256 public constant MAX_MARKETPLACE_FEE = 20;
+    uint256 public constant MAX_AUCTION_TIME = 365 days;
 
     uint256 public marketplaceFee = 5;
     string public marketplaceName;
@@ -37,6 +41,13 @@ contract Marketplace is ERC1155, ReentrancyGuard {
     mapping (uint => AuctionData) public auction;
     uint256 public auctionId;
     uint public handlerToken;
+
+    /// @notice The fee percent each sale and auction was created under
+    mapping (uint => uint) public listFee;
+    mapping (uint => uint) public auctionFee;
+    /// @notice Auction tokens held for a winner who hasn't collected them
+    mapping (uint => HeldTokens) public heldTokens;
+    bool private receivingAuctionTokens;
 
 
     function viewAllAssetsAndBids() public view returns (SellList[] memory) {
@@ -86,6 +97,13 @@ contract Marketplace is ERC1155, ReentrancyGuard {
         Action action;
     }
 
+    struct HeldTokens {
+        address winner;
+        address token;
+        uint256 tokenId;
+        uint256 amountOfToken;
+    }
+
     enum Action {
         RESERVED, STARTED
     }
@@ -115,7 +133,13 @@ contract Marketplace is ERC1155, ReentrancyGuard {
         uint256 _price
     );
 
-    /// @notice The tokens could not reach the winner, so the winning bid went back into their escrow.
+    /// @notice The auction closed and the creator was paid. The tokens wait here for the winner.
+    event AuctionTokensHeld (
+        uint256 _auctionId,
+        address _winner
+    );
+
+    /// @notice The auctioned token no longer exists, so the winning bid went back into the winner's escrow.
     event AuctionRefunded (
         uint256 _auctionId,
         address _bidder,
@@ -131,8 +155,8 @@ contract Marketplace is ERC1155, ReentrancyGuard {
     }
 
     /// @dev Credits the seller and the fee recipients. Whatever no recipient gets goes to feeReserve
-    function settle(address _seller, uint256 _amount) internal {
-        uint256 feePrice = _amount * marketplaceFee / 100;
+    function settle(address _seller, uint256 _amount, uint256 _feePercent) internal {
+        uint256 feePrice = _amount * _feePercent / 100;
         escrowAmount[_seller] += _amount - feePrice;
 
         uint256 paid = 0;
@@ -155,7 +179,7 @@ contract Marketplace is ERC1155, ReentrancyGuard {
     function updateTotalFee(
         uint256 _newFee
     ) external onlyAdmin {
-        require(_newFee <= 100, "updateFee: Fee cannot be above 100");
+        require(_newFee <= MAX_MARKETPLACE_FEE, "updateFee: Fee is above the limit");
         // Set the new Marketplace fee
         marketplaceFee = _newFee;
     }
@@ -219,6 +243,7 @@ contract Marketplace is ERC1155, ReentrancyGuard {
         require(_price > 0, "The full price for the tokens need to be greater than 0");
         require(_deadline > 3600, "The deadline needs to be greater than 1 hour");
 
+        listFee[salesId] = marketplaceFee;
         sales[salesId] = SellList (
             msg.sender,
             _token,
@@ -256,7 +281,7 @@ contract Marketplace is ERC1155, ReentrancyGuard {
         require(msg.value >= sale.price, "buyToken: Needs to be greater or equal to the price.");
 
         sales[_sellId].isSold = true;
-        settle(sale.seller, sale.price);
+        settle(sale.seller, sale.price, listFee[_sellId]);
 
         IERC1155(sale.token).safeTransferFrom(
             sale.seller,
@@ -378,7 +403,7 @@ contract Marketplace is ERC1155, ReentrancyGuard {
 
         lockedEscrow[offer.offerAddress] -= offer.offerPrice;
         escrowAmount[offer.offerAddress] -= offer.offerPrice;
-        settle(sale.seller, offer.offerPrice);
+        settle(sale.seller, offer.offerPrice, listFee[_sellId]);
 
         IERC1155(sale.token).safeTransferFrom(
             sale.seller,
@@ -465,13 +490,15 @@ contract Marketplace is ERC1155, ReentrancyGuard {
         uint256 _startDate,
         uint256 _duration,
         bool _reserved
-    ) external returns (bool) {
+    ) external nonReentrant returns (bool) {
         require(_token.code.length > 0, "createAuction: The token needs to be a contract");
         require(_amountOfToken > 0, "createAuction: The amount of tokens to sell, needs to be greater than 0");
         require(_startPrice > 0, "createAuction: The startPrice for the tokens need to be greater than 0");
         require(_duration > 86400, "createAuction: The deadline should to be greater than 1 day");
+        require(_duration <= MAX_AUCTION_TIME, "createAuction: The duration is too long");
         require(_minIncrement > 0, "createAuction: The minIncrement should be bigger than 0");
         require(_startDate > block.timestamp, "createAuction: The start date should be after now");
+        require(_startDate <= block.timestamp + MAX_AUCTION_TIME, "createAuction: The start date is too far away");
 
         Action action;
 
@@ -493,10 +520,21 @@ contract Marketplace is ERC1155, ReentrancyGuard {
             action
         );
         
+        auctionFee[auctionId] = marketplaceFee;
         auctionId ++;
+
+        receivingAuctionTokens = true;
+        IERC1155(_token).safeTransferFrom(msg.sender, address(this), _tokenId, _amountOfToken, "");
+        receivingAuctionTokens = false;
 
         return true;
 
+    }
+
+    /// @dev Accepts only the tokens createAuction moves in, so nothing else can get stuck here
+    function onERC1155Received(address _operator, address, uint256, uint256, bytes memory) external view returns (bytes4) {
+        require(_operator == address(this) && receivingAuctionTokens, "this contract does not accept tokens");
+        return this.onERC1155Received.selector;
     }
 
     /*
@@ -540,11 +578,11 @@ contract Marketplace is ERC1155, ReentrancyGuard {
     }
 
     /*
-        @param _auctionId The auction Creator can cancel the auction
+        @param _auctionId The auction Creator can cancel the auction and take the tokens back
     */
     function cancelAuction(
         uint256 _auctionId
-    ) external returns (bool) {
+    ) external nonReentrant returns (bool) {
         AuctionData memory auctionInfo = auction[_auctionId];
 
         require(msg.sender == auctionInfo.creator, "cancelAuction: Only auction creator can cancel it");
@@ -552,6 +590,15 @@ contract Marketplace is ERC1155, ReentrancyGuard {
         require(auctionInfo.highestBidder == address(0), "cancelAuction: There should be not highestBidder");
 
         delete auction[_auctionId];
+        delete auctionFee[_auctionId];
+
+        IERC1155(auctionInfo.token).safeTransferFrom(
+            address(this),
+            auctionInfo.creator,
+            auctionInfo.tokenId,
+            auctionInfo.amountOfToken,
+            ""
+        );
 
         return true;
 
@@ -559,8 +606,10 @@ contract Marketplace is ERC1155, ReentrancyGuard {
 
     /*
         @param _auctionId The winner or the creator can close a finished auction, once
-        @dev Tokens stay with the creator during an auction. If they can't reach the winner,
-        for example because the creator moved them, the winner's bid goes back into their escrow.
+        @dev The creator is paid here whatever the winner does. Tokens are only sent straight away when the
+        winner calls, so the winner's code never runs on the creator's call. Otherwise, or if the winner's
+        address refuses them, the tokens wait for collectAuctionTokens.
+        @return True if the winner received the tokens in this call.
     */
     function claimAuction(
         uint256 _auctionId
@@ -571,22 +620,53 @@ contract Marketplace is ERC1155, ReentrancyGuard {
         require(msg.sender == auctionInfo.highestBidder || msg.sender == auctionInfo.creator, "claimAuction: The msg.sender should be the highest Bidder or the creator");
         require(block.timestamp > auctionInfo.startDate + auctionInfo.duration, "claimAuction: The time should be after endDate");
 
+        uint256 feePercent = auctionFee[_auctionId];
         delete auction[_auctionId];
+        delete auctionFee[_auctionId];
 
-        try IERC1155(auctionInfo.token).safeTransferFrom(
-            auctionInfo.creator, 
-            auctionInfo.highestBidder, 
-            auctionInfo.tokenId, 
-            auctionInfo.amountOfToken, 
-            ""
-        ) {
-            settle(auctionInfo.creator, auctionInfo.highestBid);
-            return true;
-        } catch {
+        // Calling a token with no code would revert outside the try, and lock the bid
+        if (auctionInfo.token.code.length == 0) {
             escrowAmount[auctionInfo.highestBidder] += auctionInfo.highestBid;
             emit AuctionRefunded(_auctionId, auctionInfo.highestBidder, auctionInfo.highestBid);
             return false;
         }
+
+        settle(auctionInfo.creator, auctionInfo.highestBid, feePercent);
+
+        if (msg.sender == auctionInfo.highestBidder) {
+            try IERC1155(auctionInfo.token).safeTransferFrom(
+                address(this),
+                auctionInfo.highestBidder,
+                auctionInfo.tokenId,
+                auctionInfo.amountOfToken,
+                ""
+            ) {
+                return true;
+            } catch {}
+        }
+
+        heldTokens[_auctionId] = HeldTokens(auctionInfo.highestBidder, auctionInfo.token, auctionInfo.tokenId, auctionInfo.amountOfToken);
+        emit AuctionTokensHeld(_auctionId, auctionInfo.highestBidder);
+        return false;
+    }
+
+    /*
+        @param _auctionId The closed auction whose tokens are waiting here
+        @param _to Where to send them, which can be another address if the winner's own can't receive them
+    */
+    function collectAuctionTokens(
+        uint256 _auctionId,
+        address _to
+    ) external nonReentrant returns (bool) {
+        HeldTokens memory held = heldTokens[_auctionId];
+        require(held.winner != address(0), "collectAuctionTokens: Nothing is held for this auction");
+        require(msg.sender == held.winner, "collectAuctionTokens: Only the winner can collect");
+
+        delete heldTokens[_auctionId];
+
+        IERC1155(held.token).safeTransferFrom(address(this), _to, held.tokenId, held.amountOfToken, "");
+
+        return true;
     }
 
     /**

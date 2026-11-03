@@ -80,8 +80,10 @@ contract Forward is ERC1155, ReentrancyGuard {
         Asset.safeTransferFrom(address(this), msg.sender, Tokens, 1, "");
         return true;
     }
-    // create sales function to but contract 
-    function buyForwardsToken()public payable  bought activate nonReentrant returns(bool){
+    // Buys the contract. The buyer names the terms they read, so the listing can't change while the purchase is pending
+    function buyForwardsToken(address _expectedToken,uint _expectedTokenId,uint _expectedDate,uint _expectedPrice)public payable  bought activate nonReentrant returns(bool){
+        require(_expectedToken == AssetTokenAddress && _expectedTokenId == Tokens && _expectedDate == realeaseDate && _expectedPrice == price,"the terms have changed");
+        require(block.timestamp < realeaseDate,"the date of maturity has passed");
         require(msg.value>=price,"funds not enough to purchase contract");
         contractSold = true;
         _mint(msg.sender,forwardToken,1, "");

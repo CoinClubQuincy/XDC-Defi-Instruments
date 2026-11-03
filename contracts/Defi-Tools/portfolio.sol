@@ -114,7 +114,7 @@ contract Portfolio is ERC1155{
     function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) internal virtual override {
         super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
         for(uint i = 0; i < ids.length; i++){
-            if(ids[i] == handlerToken && to != address(0)){
+            if(ids[i] == handlerToken && to != address(0) && amounts[i] > 0){
                 currentOwner = to;
             }
         }
@@ -255,6 +255,10 @@ contract Portfolio is ERC1155{
     
     function claimAuction(uint256 _auctionId) public handler returns(bool){
         return marketplace.claimAuction(_auctionId);
+    }
+
+    function collectAuctionTokens(uint256 _auctionId, address _to) public handler returns(bool){
+        return marketplace.collectAuctionTokens(_auctionId, _to);
     }
 
     //ERC1155Received fuctions, so a portfolio can hold what it buys

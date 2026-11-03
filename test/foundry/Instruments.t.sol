@@ -29,9 +29,10 @@ contract AgreementTest is Test {
 
     function signAll() internal {
         address[4] memory signers = [partyA, partyB, witnessA, witnessB];
+        string memory document = agreement.DocumentHash();
         for (uint i = 0; i < signers.length; i++) {
             vm.prank(signers[i]);
-            agreement.sign_proposal();
+            agreement.sign_proposal(document);
         }
     }
 
@@ -59,52 +60,52 @@ contract AgreementTest is Test {
 
     function test_EachRoleSignsAndTheLastCompletesIt() public {
         vm.prank(partyA);
-        (bool ok, string memory message) = agreement.sign_proposal();
+        (bool ok, string memory message) = agreement.sign_proposal("hash-1");
         assertTrue(ok);
         assertEq(message, "Party A has signed Document");
         assertEq(agreement.PartyASignature(), partyA);
         assertFalse(agreement.contractComplete());
 
         vm.prank(partyB);
-        agreement.sign_proposal();
+        agreement.sign_proposal("hash-1");
         vm.prank(witnessA);
-        agreement.sign_proposal();
+        agreement.sign_proposal("hash-1");
         assertFalse(agreement.contractComplete());
 
         vm.prank(witnessB);
-        (ok, message) = agreement.sign_proposal();
+        (ok, message) = agreement.sign_proposal("hash-1");
         assertEq(message, "Contract completed");
         assertTrue(agreement.contractComplete());
     }
 
     function test_NobodySignsTwice() public {
         vm.startPrank(partyA);
-        agreement.sign_proposal();
+        agreement.sign_proposal("hash-1");
         vm.expectRevert("you have already signed");
-        agreement.sign_proposal();
+        agreement.sign_proposal("hash-1");
         vm.stopPrank();
     }
 
     function test_OneAddressCannotHoldTwoSigningRoles() public {
         Contract solo = new Contract("hash", "Agreement", "uri", partyA);
         vm.startPrank(partyA);
-        solo.sign_proposal();
+        solo.sign_proposal("hash");
         vm.expectRevert("you have already signed");
-        solo.sign_proposal();
+        solo.sign_proposal("hash");
         vm.stopPrank();
     }
 
     function test_StrangersCannotSign() public {
         vm.prank(makeAddr("stranger"));
         vm.expectRevert("you hold no unsigned role");
-        agreement.sign_proposal();
+        agreement.sign_proposal("hash-1");
     }
 
     function test_ACounterProposalClearsSignatures() public {
         vm.prank(partyA);
-        agreement.sign_proposal();
+        agreement.sign_proposal("hash-1");
         vm.prank(witnessA);
-        agreement.sign_proposal();
+        agreement.sign_proposal("hash-1");
 
         vm.prank(partyB);
         agreement.counter_proposal_B("hash-2");
@@ -115,6 +116,15 @@ contract AgreementTest is Test {
         assertTrue(agreement.contractComplete());
     }
 
+    function test_ASignatureCannotLandOnADifferentDocument() public {
+        vm.prank(partyB);
+        agreement.counter_proposal_B("hash-2");
+        vm.prank(witnessA);
+        vm.expectRevert("the document has changed");
+        agreement.sign_proposal("hash-1");
+        assertEq(agreement.WitnessASignature(), address(0));
+    }
+
     function test_ACompletedAgreementIsFinal() public {
         signAll();
         vm.prank(partyA);
@@ -122,7 +132,7 @@ contract AgreementTest is Test {
         agreement.counter_proposal_A("hash-2");
         vm.prank(partyA);
         vm.expectRevert("contract has already been signed");
-        agreement.sign_proposal();
+        agreement.sign_proposal("hash-1");
     }
 
     function test_DocumentHashIsRequired() public {
