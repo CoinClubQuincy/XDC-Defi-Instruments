@@ -4,8 +4,6 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
-import "@openzeppelin/contracts/utils/Address.sol";
 import "./marketplace.sol";
 
 
@@ -14,17 +12,18 @@ import "./marketplace.sol";
 /// @notice This is a portfolio contract that allows a single contract to custody assets from the 1155 marketplace
 /// @dev this contravct works well with the 1155 marketplace contract
 
-using Address for address;
-
 contract portfolioLedger{
     string portfolioTokenURI;   //URI formart for users
-    address marketplaceAddress; //address of marketplace Contract
+    address public marketplaceAddress; //address of marketplace Contract
 
-    uint totalAccounts = 0;
+    uint public totalAccounts = 0;
     
+    // The marketplace's keys go to whoever deploys this ledger, since the ledger itself can't use them
     constructor(uint _totalHandlers,string memory _URI,string memory _marketplaceName){
         portfolioTokenURI = _URI;
-        marketplaceAddress = address(new Marketplace(_totalHandlers,_URI,_marketplaceName));
+        Marketplace market = new Marketplace(_totalHandlers,_URI,_marketplaceName);
+        marketplaceAddress = address(market);
+        market.safeTransferFrom(address(this), msg.sender, market.handlerToken(), _totalHandlers, "");
         totalAccounts++;
     }
     mapping(string => Ledger) ledger;
@@ -52,14 +51,12 @@ contract portfolioLedger{
         totalAccounts++;
         return ("new account created", portfolioContractAddress);
     }
-    //check and view new user Account
-    function checkAccount(string memory _account,uint accountNumber)public returns(string memory,address,bool){
-        require(bytes(_account).length > 0, "Account name cannot be empty");
-        require(accountNumber > 0, "Account number must be greater than zero");
-
-
-        if(ledger[_account].exist = true || numbLedger[accountNumber].exist){
-            return (ledger[_account].account,ledger[_account].portfolio,ledger[_account].exist);
+    //check and view a user Account, by name or by number
+    function checkAccount(string memory _account,uint accountNumber)public view returns(string memory,address,bool){
+        if(ledger[_account].exist){
+            return (ledger[_account].account,ledger[_account].portfolio,true);
+        }else if(numbLedger[accountNumber].exist){
+            return (numbLedger[accountNumber].account,numbLedger[accountNumber].portfolio,true);
         }else{
             return ("none",0x0000000000000000000000000000000000000000,false);
         }
@@ -68,12 +65,9 @@ contract portfolioLedger{
     function forwardFunds(string memory _reciver)external payable returns(bool){
         require(bytes(_reciver).length > 0, "Receiver name cannot be empty");
         require(msg.value > 0, "Amount must be greater than 0");
-        string memory account_;
-        address portfolio_;
-        bool exist_;
-        (account_, portfolio_, exist_) = checkAccount(_reciver,0);
-        require(exist_ == true, "User does not exist");
-        payable(portfolio_).transfer(msg.value);
+        require(ledger[_reciver].exist == true, "User does not exist");
+        (bool sent,) = payable(ledger[_reciver].portfolio).call{value: msg.value}("");
+        require(sent, "Payment failed");
         return true;
     }
 }
@@ -81,12 +75,11 @@ contract portfolioLedger{
 contract Portfolio is ERC1155{
     uint public handlerToken;
     string public accountName;
-    uint marketplaceCount =0;
+    uint public marketplaceCount =0;
 
     Marketplace public marketplace;
     portfolioLedger public DAppLedger;
-    address private ledgerPrivate;
-    address currentOwner;
+    address public currentOwner;
 
     event changedMarketPlace(string _newmarketplace);
     event changedOwner(string _brokerMSG,address _newOwner);
@@ -104,13 +97,10 @@ contract Portfolio is ERC1155{
         _mint(user,handlerToken,1, "");
 
         accountName = _name;
-        ledgerPrivate = _DAppLedger;
         DAppLedger = portfolioLedger(_DAppLedger);
-        marketplace = Marketplace(payable (_marketplace));
+        marketplace = Marketplace(_marketplace);
         
-        logNewMarketPlace(address(_marketplace));
-        
-        currentOwner = user;
+        logNewMarketPlace(_marketplace);
     }
     modifier broker{
         require(marketplace.balanceOf(msg.sender,marketplace.handlerToken()) >= 1, "broker does not hold handler token");
@@ -120,21 +110,30 @@ contract Portfolio is ERC1155{
         require(balanceOf(msg.sender,handlerToken) >= 1, "user does not hold handler token");
         _;
     }
+    // Keeps currentOwner right when the key is sold or moved, so a broker can still reset it
+    function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) internal virtual override {
+        super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
+        for(uint i = 0; i < ids.length; i++){
+            if(ids[i] == handlerToken && to != address(0)){
+                currentOwner = to;
+            }
+        }
+    }
     function resetOwner(address _newOwner) public broker returns(address){
         require(_newOwner != address(0), "New owner address cannot be zero");
         require(_newOwner != currentOwner, "New owner cannot be the same as the current owner");
 
-        _mint(_newOwner,handlerToken,1, "");
         _burn(currentOwner,handlerToken,1);
-        currentOwner = _newOwner;
+        _mint(_newOwner,handlerToken,1, "");
 
         emit changedOwner("The registerd broker has chaged the owner of this contract",_newOwner);
         return _newOwner;
     }
     function logNewMarketPlace(address _marketplace) internal returns(bool){
         require(savedmarketplace[_marketplace].exist == false, "Markeplace already exist");
-        savedmarketplace[_marketplace] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
-        marketplaceNumber[marketplaceCount] = savedMarketPlaces(_marketplace,marketplace.marketplaceName(),true);
+        string memory name = Marketplace(_marketplace).marketplaceName();
+        savedmarketplace[_marketplace] = savedMarketPlaces(_marketplace,name,true);
+        marketplaceNumber[marketplaceCount] = savedMarketPlaces(_marketplace,name,true);
         marketplaceCount++;
         return true;
     }
@@ -146,13 +145,15 @@ contract Portfolio is ERC1155{
         return true;
     }
 
+    // Marks the slot as removed. Other marketplaces keep their numbers
     function deleteMarketplace(uint _marketplaceIndex)public handler returns(bool){
-        require(savedmarketplace[marketplaceNumber[_marketplaceIndex].marketplaceAddress].exist == false, "Markeplace already exist");
         require(_marketplaceIndex < marketplaceCount, "Marketplace index out of range");
+        address saved = marketplaceNumber[_marketplaceIndex].marketplaceAddress;
+        require(saved != address(0), "Marketplace was already removed");
+        require(saved != address(marketplace), "Marketplace is in use");
 
-        savedmarketplace[marketplaceNumber[_marketplaceIndex].marketplaceAddress] = savedMarketPlaces(0x0000000000000000000000000000000000000000,"removed",false);
+        delete savedmarketplace[saved];
         marketplaceNumber[_marketplaceIndex] = savedMarketPlaces(0x0000000000000000000000000000000000000000,"removed",false);
-        marketplaceCount--;
         return true;
     }
 
@@ -177,6 +178,18 @@ contract Portfolio is ERC1155{
         require(success, "Failed to forward funds.");
         return success;
     }
+    // Moves money out of the portfolio, such as what came back from withdrawEscrow
+    function withdrawFunds(address _to,uint256 _amount) public handler returns(bool){
+        require(_to != address(0), "Invalid address");
+        (bool sent,) = payable(_to).call{value: _amount}("");
+        require(sent, "Payment failed");
+        return true;
+    }
+    // A portfolio holding tokens must approve the marketplace before it can list or transfer them
+    function approveMarketplace(address _token,bool _approved) public handler returns(bool){
+        IERC1155(_token).setApprovalForAll(address(marketplace),_approved);
+        return true;
+    }
 
     function createList(address _token,uint256 _tokenId,uint256 _amountOfToken,uint256 _deadline,uint256 _price) public handler returns(bool){
         marketplace.createList(_token,_tokenId,_amountOfToken,_deadline,_price);
@@ -198,8 +211,9 @@ contract Portfolio is ERC1155{
         return true;
     }
     
-    function makeOffer(uint256 _sellId,uint256 _price) public handler returns(bool){
-        marketplace.makeOffer(_sellId,_price);
+    // Pays from the portfolio's balance, topped up by anything sent with the call
+    function makeOffer(uint256 _sellId,uint256 _price) public payable handler returns(bool){
+        marketplace.makeOffer{value: _price}(_sellId,_price);
         return true;
     }
     
@@ -213,8 +227,9 @@ contract Portfolio is ERC1155{
         return true;
     }
     
-    function depositEscrow(uint256 _amount) public handler returns(bool){
-        marketplace.withdrawEscrow(_amount);
+    // Pays from the portfolio's balance, topped up by anything sent with the call
+    function depositEscrow(uint256 _amount) public payable handler returns(bool){
+        marketplace.depositEscrow{value: _amount}();
         return true;
     }
     
@@ -228,8 +243,8 @@ contract Portfolio is ERC1155{
         return true;
     }
     
-    function placeBid(uint256 _auctionId) public handler returns(bool){
-        marketplace.placeBid(_auctionId);
+    function placeBid(uint256 _auctionId) public payable handler returns(bool){
+        marketplace.placeBid{value: msg.value}(_auctionId);
         return true;
     }
     
@@ -239,10 +254,16 @@ contract Portfolio is ERC1155{
     }
     
     function claimAuction(uint256 _auctionId) public handler returns(bool){
-        marketplace.claimAuction(_auctionId);
-        return true;
+        return marketplace.claimAuction(_auctionId);
     }
 
-    fallback() external payable {}
+    //ERC1155Received fuctions, so a portfolio can hold what it buys
+    function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
+        return this.onERC1155Received.selector;
+    }
+    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory) public virtual returns (bytes4) {
+        return this.onERC1155BatchReceived.selector;
+    }
+
     receive() external payable {} 
 }

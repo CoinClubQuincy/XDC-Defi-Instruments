@@ -6,29 +6,28 @@
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-
-contract ASSET is ERC1155 {
-        constructor() ERC1155("https://thisissomeMetaData/{id}.json") {
-    }
-} 
-
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title Forwards Contract
 /// @author R Quincy Jones
-/// @notice This is an automated forwards contract
-/// @dev This contract can be used with ERC1150 tokens 
+/// @notice The handler escrows one asset token and sets a price and a date. A buyer pays the full
+/// price now, and can collect the asset once the date passes.
+/// @dev This contract can be used with ERC1155 tokens. The buyer should check AssetTokenAddress,
+/// since the handler chooses which token contract to use
 
-contract Forward is ERC1155 {
+contract Forward is ERC1155, ReentrancyGuard {
     uint256 public constant forwardToken = 0;
     uint256 public handlerToken;
     uint public realeaseDate = 0;
     uint public price = 0;
     bool public contractSold = false;
     address public AssetTokenAddress;
-    ASSET public Asset;
+    IERC1155 public Asset;
 
     uint public Tokens;
     bool public activated;
+    bool public redeemed;
 
     constructor(string memory _URI) ERC1155(_URI) {
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
@@ -59,10 +58,10 @@ contract Forward is ERC1155 {
         return block.number;
     }
 
-    // Create func to list token price and drop commodities token in forwards contract
-    function deployAssets(address _AssetTokenAddress,uint _Tokens,uint _realeaseDate, uint _price)public Handler returns(bool){
+    // Lists the price and moves the asset into this contract. The handler must approve this contract first
+    function deployAssets(address _AssetTokenAddress,uint _Tokens,uint _realeaseDate, uint _price)public Handler bought nonReentrant returns(bool){
+        require(activated == false, "contract has already been activated");
         require(_AssetTokenAddress != address(0), "Invalid asset token address");
-        require(_Tokens > 0, "Tokens must be greater than 0");
         require(_realeaseDate > block.timestamp, "Release date must be in the future");
         require(_price > 0, "Price must be greater than 0");
         
@@ -70,44 +69,56 @@ contract Forward is ERC1155 {
         price = _price;
         AssetTokenAddress = _AssetTokenAddress;
         Tokens = _Tokens;
-        Asset = ASSET(AssetTokenAddress);
-        Asset.safeTransferFrom(msg.sender,address(this),_Tokens, 1, "");
+        Asset = IERC1155(AssetTokenAddress);
         activated = true;
+        Asset.safeTransferFrom(msg.sender,address(this),_Tokens, 1, "");
+        return true;
+    }
+    // Takes the listing down and returns the asset, as long as nobody has bought it
+    function cancelListing()public Handler bought activate nonReentrant returns(bool){
+        activated = false;
+        Asset.safeTransferFrom(address(this), msg.sender, Tokens, 1, "");
         return true;
     }
     // create sales function to but contract 
-    function buyForwardsToken()public payable  bought activate returns(bool){
+    function buyForwardsToken()public payable  bought activate nonReentrant returns(bool){
         require(msg.value>=price,"funds not enough to purchase contract");
-        _mint(msg.sender,forwardToken,1, "");
         contractSold = true;
+        _mint(msg.sender,forwardToken,1, "");
         refund();
         return true;
     }
     // token holder can redeem contract once time has elaps
-    function redeemForward()public ForwardToken returns(bool,string memory){
-        Asset.safeTransferFrom(address(this), msg.sender, Tokens, 1, "0x0");
+    function redeemForward()public ForwardToken nonReentrant returns(bool,string memory){
+        require(redeemed == false, "Forward has already been redeemed");
+        redeemed = true;
+        _burn(msg.sender, forwardToken, 1);
+        Asset.safeTransferFrom(address(this), msg.sender, Tokens, 1, "");
         return (true,"Forward Contract Redeemed");
     }
-    function redeemContractValue()public Handler returns(bool){
-        payable(msg.sender).transfer(address(this).balance);
+    function redeemContractValue()public Handler nonReentrant returns(bool){
+        (bool sent,) = payable(msg.sender).call{value: address(this).balance}("");
+        require(sent, "Payment failed");
         return true;
     }
     function refund()internal {
         if(msg.value>price){
-            payable(msg.sender).transfer(msg.value - price);
+            (bool sent,) = payable(msg.sender).call{value: msg.value - price}("");
+            require(sent, "Refund failed");
         }
     }
-    //ERC1155Received fuctions
-    function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
+    // A forward stays with the buyer who agreed to it
+    function _beforeTokenTransfer(address operator, address from, address to, uint256[] memory ids, uint256[] memory amounts, bytes memory data) internal virtual override {
+        super._beforeTokenTransfer(operator, from, to, ids, amounts, data);
+        if(from != address(0) && to != address(0)){
+            for(uint i = 0; i < ids.length; i++){
+                require(ids[i] != forwardToken, "forwards are non-transferable");
+            }
+        }
+    }
+    // Accepts only the asset this contract moves in itself, so nothing else can get stuck here
+    function onERC1155Received(address _operator, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
+        require(msg.sender == AssetTokenAddress && _operator == address(this), "this contract does not accept tokens");
         return this.onERC1155Received.selector;
     }
-    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory) public virtual returns (bytes4) {
-        return this.onERC1155BatchReceived.selector;
-    }
-    function onERC721Received(address, address, uint256, bytes memory) public virtual returns (bytes4) {
-        return this.onERC721Received.selector;
-    }
-
-    fallback() external payable {}
-    receive() external payable {} 
 }

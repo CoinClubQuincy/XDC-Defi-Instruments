@@ -4,16 +4,16 @@ pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title 1155 Marketplace
 /// @author R Quincy Jones
 /// @notice This contract is a for from https://github.com/TronzitVeca/ERC1155-Marketplace-Contract that acts as a token marketplace
-/// @dev This contract works with the profile contract
+/// @dev This contract works with the profile contract. Tokens stay with the seller until a sale, so
+/// the seller must approve this contract on the token. Sale money waits in escrowAmount, and each
+/// person collects their own with withdrawEscrow, so one bad recipient can't block a sale or auction.
 
-contract Marketplace is ERC1155{
-
-    using SafeMath for uint256;
+contract Marketplace is ERC1155, ReentrancyGuard {
 
     uint256 public marketplaceFee = 5;
     string public marketplaceName;
@@ -21,6 +21,8 @@ contract Marketplace is ERC1155{
     mapping (uint => address) public recipient;
     mapping (uint => uint) public fee;
     uint256 public recipientCount;
+    /// @notice Fee money no recipient was assigned, which a key holder can collect
+    uint256 public feeReserve;
 
     mapping (uint => SellList) public sales;
     uint256 public salesId;
@@ -29,6 +31,8 @@ contract Marketplace is ERC1155{
     mapping (uint => uint) public offerCount;
 
     mapping (address => uint) public escrowAmount;
+    /// @notice The part of escrowAmount backing open offers, which can't be withdrawn until they close
+    mapping (address => uint) public lockedEscrow;
 
     mapping (uint => AuctionData) public auction;
     uint256 public auctionId;
@@ -43,6 +47,11 @@ contract Marketplace is ERC1155{
         }
 
         return allAssets;
+    }
+
+
+    function viewAuction(uint256 _auctionId) public view returns (AuctionData memory) {
+        return auction[_auctionId];
     }
 
 
@@ -106,13 +115,39 @@ contract Marketplace is ERC1155{
         uint256 _price
     );
 
+    /// @notice The tokens could not reach the winner, so the winning bid went back into their escrow.
+    event AuctionRefunded (
+        uint256 _auctionId,
+        address _bidder,
+        uint256 _bid
+    );
+
     //change to handler token
     constructor(uint _totalHandlers,string memory _URI,string memory _marketplaceName) ERC1155(_URI)   {
+        require(_totalHandlers > 0, "at least one handler is required");
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(msg.sender,handlerToken,_totalHandlers, "");
         marketplaceName = _marketplaceName;
     }
 
+    /// @dev Credits the seller and the fee recipients. Whatever no recipient gets goes to feeReserve
+    function settle(address _seller, uint256 _amount) internal {
+        uint256 feePrice = _amount * marketplaceFee / 100;
+        escrowAmount[_seller] += _amount - feePrice;
+
+        uint256 paid = 0;
+        for (uint i = 0; i < recipientCount; i++) {
+            uint256 share = feePrice * fee[i] / 100;
+            escrowAmount[recipient[i]] += share;
+            paid += share;
+        }
+        feeReserve += feePrice - paid;
+    }
+
+    function send(address _to, uint256 _amount) internal {
+        (bool sent,) = payable(_to).call{value: _amount}("");
+        require(sent, "Payment failed");
+    }
 
     /**
         @param _newFee This is new marketplace fee amount
@@ -120,13 +155,14 @@ contract Marketplace is ERC1155{
     function updateTotalFee(
         uint256 _newFee
     ) external onlyAdmin {
+        require(_newFee <= 100, "updateFee: Fee cannot be above 100");
         // Set the new Marketplace fee
         marketplaceFee = _newFee;
     }
     
     /** 
         @param _recipient These are the updated recipient addresses of the fees.
-        @param _fee These are the updated fees for the recipients to receive.
+        @param _fee These are the updated percentages of the fee for the recipients to receive. They can't add up to more than 100.
     **/
     function updateFeeAndRecipient(
         address[] memory _recipient, 
@@ -139,10 +175,27 @@ contract Marketplace is ERC1155{
         recipientCount = _fee.length;
 
         // Reset recipient and fee with newly data
+        uint256 total = 0;
         for (uint i = 0; i < recipientCount; i++) {
+            require(_recipient[i] != address(0), "updateFee: Invalid recipient");
             recipient[i] = _recipient[i];
             fee[i] = _fee[i];
+            total += _fee[i];
         }
+        require(total <= 100, "updateFee: Shares cannot be above 100");
+    }
+
+    /**
+        @dev Collects fee money that no recipient was assigned
+    **/
+    function withdrawFeeReserve(
+        address _to,
+        uint256 _amount
+    ) external onlyAdmin nonReentrant returns (bool) {
+        require(_amount <= feeReserve, "withdrawFeeReserve: lower amount");
+        feeReserve -= _amount;
+        send(_to, _amount);
+        return true;
     }
 
     /** 
@@ -161,18 +214,11 @@ contract Marketplace is ERC1155{
         uint256 _deadline,
         uint256 _price
     ) external returns (bool) {
-        /*
-            Check if amount of token is greater than 0
-                full price for token  is greater than 0
-                the deadline is longer than 1 hr
-        */
+        require(_token.code.length > 0, "The token needs to be a contract");
         require(_amountOfToken > 0, "The amount of tokens to sell, needs to be greater than 0");
         require(_price > 0, "The full price for the tokens need to be greater than 0");
         require(_deadline > 3600, "The deadline needs to be greater than 1 hour");
 
-        /*
-            Add variables to the SellList struct with tokenAddress, seller, tokenId, amountOfToken, deadline, price
-        */
         sales[salesId] = SellList (
             msg.sender,
             _token,
@@ -182,15 +228,7 @@ contract Marketplace is ERC1155{
             _price,
             false
         );
-        
-        /*
-            Add the salesId as increment 1
-        */
-        salesId ++;
 
-        /*
-            Emit the event when a sell is created.
-        */
         emit SellEvent(
             msg.sender,
             _token,
@@ -199,54 +237,40 @@ contract Marketplace is ERC1155{
             _amountOfToken
         );
 
+        salesId ++;
+
         return true;
     }
 
     /**
         @param _sellId This is the ID of the SellList that's stored in mapping function.
+        @dev The seller's money waits in escrow, and anything paid above the price is sent back.
     **/
     function buyListToken(
         uint256 _sellId
-    ) external payable returns (bool) {
-        /*
-            Check if the msg.sender is not zero address
-            of this sell, and if is sold
-            msg.value needs to be greater than the price
-        */
-        require(msg.sender != address(0), "buyToken: Needs to be a address.");
-        require(sales[_sellId].isSold != true, "buyToken: The tokends were bought.");
-        require(msg.value >= sales[_sellId].price, "buyToken: Needs to be greater or equal to the price.");
+    ) external payable nonReentrant returns (bool) {
+        SellList memory sale = sales[_sellId];
+        require(sale.seller != address(0), "buyToken: The sale does not exist.");
+        require(sale.isSold != true, "buyToken: The tokends were bought.");
+        require(block.timestamp <= sale.deadline, "buyToken: The sale has ended.");
+        require(msg.value >= sale.price, "buyToken: Needs to be greater or equal to the price.");
 
-        /*
-            Get salePrice and feePrice from the marketplaceFee
-        */
-        uint256 salePrice = sales[_sellId].price;
-        uint256 feePrice = salePrice * marketplaceFee / 100;
+        sales[_sellId].isSold = true;
+        settle(sale.seller, sale.price);
 
-        /*
-            Transfer salePrice-feePrice to the seller's wallet
-        */
-        payable(sales[_sellId].seller).transfer(salePrice - feePrice);
-
-        /*
-            Distribution feePrice to the recipients' wallets
-        */
-        for (uint i = 0; i < recipientCount;  i++) {
-            payable(recipient[i]).transfer(feePrice * fee[i] / 100);
-        }
-
-              
-        /* 
-            After we send the Matic to the user, we send
-            the amountOfToken to the msg.sender.
-        */
-        IERC1155(sales[_sellId].token).safeTransferFrom(
-            sales[_sellId].seller, 
-            msg.sender, 
-            sales[_sellId].tokenId, 
-            sales[_sellId].amountOfToken, 
-            "0x0"
+        IERC1155(sale.token).safeTransferFrom(
+            sale.seller,
+            msg.sender,
+            sale.tokenId,
+            sale.amountOfToken,
+            ""
         );
+
+        emit BuyEvent(msg.sender, sale.token, sale.tokenId, sale.amountOfToken, sale.price);
+
+        if (msg.value > sale.price) {
+            send(msg.sender, msg.value - sale.price);
+        }
 
         return true;
     }
@@ -257,26 +281,17 @@ contract Marketplace is ERC1155{
     function cancelList(
         uint256 _sellId
     ) external returns (bool) {
-        /*
-            Check if the msg.sender is really the owner
-            of this sell, and if is not sold yet.
-        */
-        require(sales[_sellId].seller == msg.sender, "Cancel: should be the owner of the sell.");
-        require(sales[_sellId].isSold != true, "Cancel: already sold.");
-        /*
-            After that checking we can safely delete the sell
-            in our marketplace.
-        */
+        SellList memory sale = sales[_sellId];
+        require(sale.seller == msg.sender, "Cancel: should be the owner of the sell.");
+        require(sale.isSold != true, "Cancel: already sold.");
+
         delete sales[_sellId];
 
-        /*
-            Emit the event when a sell is cancelled.
-        */
         emit CanceledSell(
-            sales[_sellId].seller, 
-            sales[_sellId].token, 
-            sales[_sellId].tokenId,
-            sales[_sellId].amountOfToken
+            sale.seller,
+            sale.token,
+            sale.tokenId,
+            sale.amountOfToken
         );
 
         return true;
@@ -295,17 +310,13 @@ contract Marketplace is ERC1155{
         address _token,
         uint256 _tokenId,
         uint256 _amountOfToken
-    ) external returns (bool) {
-        /* 
-            Send ERC1155 token to _receiver wallet
-            _amountOfToken to the _receiver
-        */
+    ) external nonReentrant returns (bool) {
         IERC1155(_token).safeTransferFrom(
             msg.sender, 
             _receiver, 
             _tokenId, 
             _amountOfToken, 
-            "0x0"
+            ""
         );
 
         return true;
@@ -315,44 +326,32 @@ contract Marketplace is ERC1155{
     /**
         @param _sellId The ID of the sell that you want to make an offer.
         @param _price The offer price for _sellId.
+        @dev The money stays locked in escrow until the offer is accepted or cancelled.
     **/
     function makeOffer(
         uint256 _sellId,
         uint256 _price
     ) external payable returns (bool) {
-
-        /*
-            Check if the msg.value is the same as the _price value of this sell, 
-             if the seller is msg.sender
-             if it is not sold yet.
-        */
+        SellList memory sale = sales[_sellId];
+        require(_price > 0, "makeOffer: the offer needs a price");
         require(msg.value == _price, "makeOffer: msg.value should be the _price");
-        require(sales[_sellId].seller != msg.sender, "makeOffer: seller shouldn't offer");
-        require(sales[_sellId].isSold != true, "makeOffer: already sold.");
+        require(sale.seller != address(0), "makeOffer: the sale does not exist");
+        require(sale.seller != msg.sender, "makeOffer: seller shouldn't offer");
+        require(sale.isSold != true, "makeOffer: already sold.");
+        require(block.timestamp <= sale.deadline, "makeOffer: the sale has ended");
 
-        /*
-            Get the offerCount of this _sellId
-        */
         uint256 counter = offerCount[_sellId];
 
-        /*
-            Add variables to the OfferData struct with offerAddress, offerPrice, offerAcceptable bool value
-        */
         offerInfo[_sellId][counter] = OfferData (
             msg.sender,
             msg.value,
             false
         );
 
-        /*
-            The offerCount[_sellId] value add +1
-        */
         offerCount[_sellId] ++;
 
-        /*
-            Add the value to the `escrowAmount[address]`
-        */
         escrowAmount[msg.sender] += msg.value;
+        lockedEscrow[msg.sender] += msg.value;
 
         return true;
     }
@@ -364,63 +363,30 @@ contract Marketplace is ERC1155{
     function acceptOffer(
         uint256 _sellId,
         uint256 _offerCount
-    ) external returns (bool) {
-
-        /*
-            Get the offer data from _sellId and _offerCount
-        */
+    ) external nonReentrant returns (bool) {
+        SellList memory sale = sales[_sellId];
         OfferData memory offer = offerInfo[_sellId][_offerCount];
 
-        /*
-            Check if the sale NFTs are not sold
-             if the seller is msg.sender
-             if it is already accepted
-             if offerPrice is larger than escrowAmount
-        */
-        require(sales[_sellId].isSold != true, "acceptOffer: already sold.");
-        require(sales[_sellId].seller == msg.sender, "acceptOffer: not seller");
+        require(sale.isSold != true, "acceptOffer: already sold.");
+        require(sale.seller == msg.sender, "acceptOffer: not seller");
+        require(block.timestamp <= sale.deadline, "acceptOffer: the sale has ended");
+        require(offer.offerAddress != address(0), "acceptOffer: the offer does not exist");
         require(offer.isAccepted == false, "acceptOffer: already accepted");
-        require(offer.offerPrice <= escrowAmount[offer.offerAddress], "acceptOffer: lower amount");
-    
-        /*
-            Get offerPrice and feePrice from the marketplaceFee
-        */
-        uint256 offerPrice = offer.offerPrice;
-        uint256 feePrice = offerPrice * marketplaceFee / 100;
 
-        /*
-            Transfer offerPrice - feePrice to the seller's wallet
-        */
-        payable(offer.offerAddress).transfer(offerPrice - feePrice);
-
-        /*
-            Distribution feePrice to the recipients' wallets
-        */
-        for (uint i = 0; i < recipientCount;  i++) {
-            payable(recipient[i]).transfer(feePrice * fee[i] / 100);
-        }
-               
-        /*
-            Substract the offerPrice from the `escrowAmount[address]`
-        */
-        escrowAmount[offer.offerAddress] -= offerPrice;
-
-        /* 
-            After we send the Matic to the user, we send
-            the amountOfToken to the msg.sender.
-        */
-        IERC1155(sales[_sellId].token).safeTransferFrom(
-            sales[_sellId].seller, 
-            offer.offerAddress, 
-            sales[_sellId].tokenId, 
-            sales[_sellId].amountOfToken, 
-            "0x0"
-        );
-        
-        /*
-            Set the offer data as it is accepted
-        */
+        sales[_sellId].isSold = true;
         offerInfo[_sellId][_offerCount].isAccepted = true;
+
+        lockedEscrow[offer.offerAddress] -= offer.offerPrice;
+        escrowAmount[offer.offerAddress] -= offer.offerPrice;
+        settle(sale.seller, offer.offerPrice);
+
+        IERC1155(sale.token).safeTransferFrom(
+            sale.seller,
+            offer.offerAddress,
+            sale.tokenId,
+            sale.amountOfToken,
+            ""
+        );
 
         return true;
 
@@ -434,38 +400,17 @@ contract Marketplace is ERC1155{
     function cancelOffer(
         uint256 _sellId,
         uint256 _offerCount
-    ) external returns (bool) {
-
-        /*
-            Get the offer data from _sellId and _offerCount
-        */
+    ) external nonReentrant returns (bool) {
         OfferData memory offer = offerInfo[_sellId][_offerCount];
 
-        /*
-            Check if the offer's offerAddress is msg.sender
-                if the offer is already accepted
-                if the offerPrice is larger than the escrowAmount
-        */
         require(msg.sender == offer.offerAddress, "cancelOffer: not offerAddress");
         require(offer.isAccepted == false, "acceptOffer: already accepted");
-        require(offer.offerPrice <= escrowAmount[msg.sender], "cancelOffer: lower amount");
 
-
-        /*
-            Transfer offerPrice return to the offerAddress
-        */
-        payable(offer.offerAddress).transfer(offer.offerPrice);
-
-        /*
-            Substract the offerPrice from the `escrowAmount[address]`
-        */
-        escrowAmount[msg.sender] -= offer.offerPrice;
-        
-        /*
-            After that checking we can safely delete the offerData
-            in our marketplace.
-        */
         delete offerInfo[_sellId][_offerCount];
+        lockedEscrow[msg.sender] -= offer.offerPrice;
+        escrowAmount[msg.sender] -= offer.offerPrice;
+
+        send(msg.sender, offer.offerPrice);
 
         return true;
     }
@@ -474,9 +419,6 @@ contract Marketplace is ERC1155{
         @dev This function used to deposit the Matic on this platform 
     **/
     function depositEscrow() external payable returns (bool) {
-        /*
-            Add the value to the `escrowAmount[address]`
-        */
         escrowAmount[msg.sender] += msg.value;
 
         return true;
@@ -490,22 +432,12 @@ contract Marketplace is ERC1155{
     **/
     function withdrawEscrow(
         uint256 _amount
-    ) external returns (bool) {
-        /*
-            The _amount should be smaller than the `escrowAmount[address]` 
-        */
-        require(_amount < escrowAmount[msg.sender], "withdrawEscrow: lower amount");
+    ) external nonReentrant returns (bool) {
+        require(_amount <= escrowAmount[msg.sender] - lockedEscrow[msg.sender], "withdrawEscrow: lower amount");
 
-        /*
-            Transfer _amount to the msg.sender wallet
-        */
-        payable(msg.sender).transfer(_amount);
-
-
-        /*
-            Substract the _amount from the `escrowAmount[address]`
-        */
         escrowAmount[msg.sender] -= _amount;
+
+        send(msg.sender, _amount);
 
         return true;
 
@@ -534,18 +466,10 @@ contract Marketplace is ERC1155{
         uint256 _duration,
         bool _reserved
     ) external returns (bool) {
-        /*
-            Check if amount of token is greater than 0
-                the full price for token  is greater than 0
-                the deadline is longer than 1 day
-                the startPrice should be larger than 0
-                the minIncrement should be larger than 0
-                the startDate should be later than now
-        */
+        require(_token.code.length > 0, "createAuction: The token needs to be a contract");
         require(_amountOfToken > 0, "createAuction: The amount of tokens to sell, needs to be greater than 0");
         require(_startPrice > 0, "createAuction: The startPrice for the tokens need to be greater than 0");
         require(_duration > 86400, "createAuction: The deadline should to be greater than 1 day");
-        require(_startPrice > 0, "createAuction: The start Price should be bigger than 0");
         require(_minIncrement > 0, "createAuction: The minIncrement should be bigger than 0");
         require(_startDate > block.timestamp, "createAuction: The start date should be after now");
 
@@ -555,16 +479,13 @@ contract Marketplace is ERC1155{
             action = Action.STARTED;
         }
         
-        /*
-            Add variables to the SellList struct with tokenAddress, seller, tokenId, amountOfToken, deadline, price
-        */
         auction[auctionId] = AuctionData (
             msg.sender,
             _token,
             address(0),
             _tokenId,
             _amountOfToken,
-            _startPrice - _minIncrement,
+            0,
             _startPrice,
             _minIncrement,
             _startDate,
@@ -572,9 +493,6 @@ contract Marketplace is ERC1155{
             action
         );
         
-        /*
-            Add the auctionId as increment 1
-        */
         auctionId ++;
 
         return true;
@@ -583,30 +501,26 @@ contract Marketplace is ERC1155{
 
     /*
         @param _auctionId Users can bid to the _auctionId with value
+        @dev The bid it replaces goes back into that bidder's escrow
     */
     function placeBid(
         uint256 _auctionId
     ) external payable returns (bool) {
-        /*
-            Get the auction data from _aucitonId
-        */
         AuctionData memory auctionInfo = auction[_auctionId];
 
-        /*
-            Check if bidAmount is bigger than the higestBid + minIncrement
-                if the creator is msg.sender
-                if the bidTime is after the startDate
-        */
-        require(msg.value >= auctionInfo.highestBid + auctionInfo.minIncrement, "placeBid: Bid amount should be bigger than highestBid");
+        require(auctionInfo.creator != address(0), "placeBid: The auction does not exist");
+
+        uint256 lowestBid = auctionInfo.highestBidder == address(0)
+            ? auctionInfo.startPrice
+            : auctionInfo.highestBid + auctionInfo.minIncrement;
+
+        require(msg.value >= lowestBid, "placeBid: Bid amount should be bigger than highestBid");
         require(msg.sender != auctionInfo.creator, "placeBid: Creator can't bid");
         require(block.timestamp >= auctionInfo.startDate, "placeBid: Bid should be after the startDate");
         require(auctionInfo.action == Action.RESERVED || auctionInfo.startDate + auctionInfo.duration > block.timestamp, "placeBid: It is Ended");
 
-        /*
-            Send back the highestBid to the highestBidder - who is not zero address
-        */
         if (auctionInfo.highestBidder != address(0)) {
-            payable(auctionInfo.highestBidder).transfer(auctionInfo.highestBid);
+            escrowAmount[auctionInfo.highestBidder] += auctionInfo.highestBid;
         }
 
         /*
@@ -618,10 +532,6 @@ contract Marketplace is ERC1155{
             auction[_auctionId].action = Action.STARTED;
         }
 
-        /*
-            Set the auctionData's highest bidder as msg.sender - who is the new bidder
-                the auctionData's highest bid as msg.value - what is the new bid value
-        */
         auction[_auctionId].highestBidder = msg.sender;
         auction[_auctionId].highestBid = msg.value;
 
@@ -635,23 +545,12 @@ contract Marketplace is ERC1155{
     function cancelAuction(
         uint256 _auctionId
     ) external returns (bool) {
-        /*
-            Get the auction data from _aucitonId
-        */
         AuctionData memory auctionInfo = auction[_auctionId];
 
-        /*
-            Check if the msg.sender should be the auction's creator 
-                if the now time should be after auction's endDate
-                if the auction's highestBidder should be zero address
-        */
         require(msg.sender == auctionInfo.creator, "cancelAuction: Only auction creator can cancel it");
         require(block.timestamp > auctionInfo.startDate + auctionInfo.duration, "cancelAuction: The time should be after endDate");
         require(auctionInfo.highestBidder == address(0), "cancelAuction: There should be not highestBidder");
 
-        /*
-            Delete the auctionData from the blockchain
-        */
         delete auction[_auctionId];
 
         return true;
@@ -659,73 +558,43 @@ contract Marketplace is ERC1155{
     }
 
     /*
-        @param _auctionId The highest bidder can claim the _auctionId's result
+        @param _auctionId The winner or the creator can close a finished auction, once
+        @dev Tokens stay with the creator during an auction. If they can't reach the winner,
+        for example because the creator moved them, the winner's bid goes back into their escrow.
     */
     function claimAuction(
         uint256 _auctionId
-    ) external returns (bool) {
-        /*
-            Get the auction data from _aucitonId
-        */
+    ) external nonReentrant returns (bool) {
         AuctionData memory auctionInfo = auction[_auctionId];
 
-        /*
-            Check if the msg.sender should be the highestBidder
-                if the now time should be after auction's endDate
-                if the auction's highestBidder should be zero address
-        */
-        require(msg.sender == auctionInfo.highestBidder, "claimAuction: The msg.sender should be the highest Bidder");
+        require(auctionInfo.highestBidder != address(0), "claimAuction: The auction has no winner");
+        require(msg.sender == auctionInfo.highestBidder || msg.sender == auctionInfo.creator, "claimAuction: The msg.sender should be the highest Bidder or the creator");
         require(block.timestamp > auctionInfo.startDate + auctionInfo.duration, "claimAuction: The time should be after endDate");
-        
-        /* 
-            Send the amountOfToken to the highest Bidder.
-        */
-        IERC1155(auctionInfo.token).safeTransferFrom(
+
+        delete auction[_auctionId];
+
+        try IERC1155(auctionInfo.token).safeTransferFrom(
             auctionInfo.creator, 
             auctionInfo.highestBidder, 
             auctionInfo.tokenId, 
             auctionInfo.amountOfToken, 
-            "0x0"
-        );
-
-        /*
-            Get bidPrice and feePrice from the marketplaceFee
-        */
-        uint256 bidPrice = auctionInfo.highestBid;
-        uint256 feePrice = bidPrice * marketplaceFee / 100;
-
-        /*
-            Transfer bidPrice-feePrice to the creator's wallet
-        */
-        payable(auctionInfo.creator).transfer(bidPrice - feePrice);
-
-        /*
-            Distribution feePrice to the recipients' wallets
-        */
-        for (uint i = 0; i < recipientCount;  i++) {
-            payable(recipient[i]).transfer(feePrice * fee[i] / 100);
+            ""
+        ) {
+            settle(auctionInfo.creator, auctionInfo.highestBid);
+            return true;
+        } catch {
+            escrowAmount[auctionInfo.highestBidder] += auctionInfo.highestBid;
+            emit AuctionRefunded(_auctionId, auctionInfo.highestBidder, auctionInfo.highestBid);
+            return false;
         }
-
-
-        return true;
-        
     }
-
-
 
     /**
         @dev This is the modifier to make - only handler can access the function
     **/
-
-
-
-
     modifier onlyAdmin{
         require(balanceOf(msg.sender,handlerToken) >= 1, "user does not hold handler token");
         _;
     }
-
-    fallback() external payable {}
-    receive() external payable {} 
 
 }

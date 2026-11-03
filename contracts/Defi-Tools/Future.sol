@@ -1,50 +1,54 @@
-
 // SPDX-License-Identifier: GPL-3.0
 pragma solidity >=0.8.2 <0.9.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-//Smart contract
-contract ASSET is ERC1155 {
-        constructor() ERC1155("https://thisissomeMetaData/{id}.json") {
-    }
-} 
+import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title Futures Contract
 /// @author R Quincy Jones
-/// @notice This is an automated futures contract
-/// @dev This contract can be used with ERC1150 tokens 
+/// @notice The handler escrows asset tokens and sets a price and a date. A buyer pays a deposit and
+/// a fee for the future token. Whoever holds that token pays the price within the window after the
+/// date, gets the deposit back and receives the assets. If nobody pays in time the contract is in
+/// default: the handler keeps the deposit and takes the assets back.
+/// @dev This contract can be used with ERC1155 tokens. The future token can be transferred
 
-contract Future is ERC1155 {
+contract Future is ERC1155, ReentrancyGuard {
     uint256 public constant futureToken = 0;
-    uint256 public constant handelerToken = 0;
+    uint256 public handelerToken;
     uint public realeaseDate = 0;
     uint public price = 0;
     bool public contractSold = false;
+    bool public listed = false;
     address public AssetTokenAddress;
-    ASSET public Asset;
-    uint[] public AssetTokens;
-    address[] public TokenList;
+    IERC1155 public Asset;
     uint[] public TokenAmmounts;
     uint[] public Tokens;
-    uint public Deposit; // 100 = 1% | 10 = 10% | 4 = 25% | 2 = 50% 
+    uint public divisable; // 100 = 1% | 10 = 10% | 4 = 25% | 2 = 50% 
+    uint public Deposit;
     uint public fee; // 1 = 0.1% 10 basis points
     uint public currentFee;
     uint public redemptionTimeLimit; // the total amount of time before contract defaults after maturity in seconds standard 1Day- 1Week
-    bool DefaultStatus = false;
-    bool CompletionStatus = false;
+    uint public handlerBalance; // what the handler can collect with redeemDeposit
+    bool public CompletionStatus = false;
+    bool public defaultSettled = false;
 
-    constructor(address[] memory _AssetTokenAddress,uint[] memory _Tokens,uint _divisable, uint _fee, string memory _URI,uint _redemptionTimeLimit) ERC1155(_URI) {
-        AssetTokenAddress = _AssetTokenAddress[0];
+    constructor(address _AssetTokenAddress,uint[] memory _Tokens,uint _divisable, uint _fee, string memory _URI,uint _redemptionTimeLimit) ERC1155(_URI) {
+        require(_AssetTokenAddress != address(0), "Invalid asset token address");
+        require(_Tokens.length > 0, "Tokens are required");
+        require(_divisable > 0, "Deposit divisor must be greater than 0");
+        require(_fee <= 1000, "Fee cannot be above 100%");
+        require(_redemptionTimeLimit > 0, "Redemption time limit must be greater than 0");
+
+        AssetTokenAddress = _AssetTokenAddress;
+        Asset = IERC1155(_AssetTokenAddress);
         Tokens = _Tokens;
-        Deposit = price/_divisable;
-        redemptionTimeLimit = _redemptionTimeLimit;
+        divisable = _divisable;
         fee = _fee;
-        currentFee = (price/1000) * _fee;
-        Asset = ASSET(AssetTokenAddress);
-        for (uint i; i <= _Tokens.length;i++) {
-            TokenList.push(address(this));
+        redemptionTimeLimit = _redemptionTimeLimit;
+        for (uint i; i < _Tokens.length;i++) {
             TokenAmmounts.push(1);
         }
-        require(Asset.balanceOfBatch(TokenList, _Tokens).length == _Tokens.length, "Contract must hold tokens");
+        handelerToken = uint(keccak256(abi.encodePacked(_URI)));
         _mint(msg.sender,handelerToken,1, "");
     }
     //only the holder of the handlerToken can access functions with this modifier
@@ -55,15 +59,6 @@ contract Future is ERC1155 {
     //only the holder of the FutureToken can access functions with this modifier
     modifier FutureToken{
         require(balanceOf(msg.sender,futureToken) == 1,"you currently do not have custody of this contracts token");
-        require(block.timestamp >= realeaseDate,"the date of maturity has not passed");
-        _;
-    }
-    modifier PurchaseAsset{
-        status();
-        returnChange(price);
-        require(DefaultStatus = false, "Contract in Default");
-        require(msg.value >= price,"not enough funds");
-        require(block.timestamp >= realeaseDate && redemptionTimeLimit + realeaseDate >= block.timestamp,"the date of maturity has not passed");
         _;
     }
     // if token has been bought user cant execute the fuction with this modifire
@@ -73,63 +68,91 @@ contract Future is ERC1155 {
     }
     function returnChange(uint _total)internal{
         if(msg.value>_total){
-            payable(msg.sender).transfer(msg.value - _total);
+            (bool sent,) = payable(msg.sender).call{value: msg.value - _total}("");
+            require(sent, "Refund failed");
         }
     }
-    function status()internal returns(bool) {
-        if(redemptionTimeLimit + realeaseDate <= block.timestamp){
-            DefaultStatus = true;
-            return true;
-        } else {
-            return false;
-        }
+    function inDefault()public view returns(bool) {
+        return contractSold && !CompletionStatus && block.timestamp > realeaseDate + redemptionTimeLimit;
     }
-    // Crreate func to list token price and drop commodities token in futures contract | as well as collatoral limit
-    function listSale(uint _realeaseDate, uint _price) public Handler bought returns(bool){
+    // Sets the terms and, the first time, moves the assets in. The handler must approve this contract first.
+    // Terms can change until somebody buys
+    function listSale(uint _realeaseDate, uint _price) public Handler bought nonReentrant returns(bool){
+        require(_realeaseDate > block.timestamp, "Release date must be in the future");
+        require(_price >= divisable, "Price is too low to set a deposit");
         realeaseDate = _realeaseDate;
         price = _price;
+        Deposit = _price / divisable;
+        currentFee = (_price * fee) / 1000;
+        if(listed == false){
+            listed = true;
+            Asset.safeBatchTransferFrom(msg.sender, address(this), Tokens, TokenAmmounts, "");
+        }
+        return true;
+    }
+    // Takes the listing down and returns the assets, as long as nobody has bought it
+    function cancelSale() public Handler bought nonReentrant returns(bool){
+        require(listed == true, "contract is not listed");
+        listed = false;
+        Asset.safeBatchTransferFrom(address(this), msg.sender, Tokens, TokenAmmounts, "");
         return true;
     }
     // create sales function to but contract 
-    function initiateContract()public payable bought returns(bool){
-        require(msg.value>=Deposit+currentFee,"funds note enough to purchace contract");
-        returnChange(Deposit+currentFee);
-        _mint(msg.sender,futureToken,1, "");
+    function initiateContract()public payable bought nonReentrant returns(bool){
+        require(listed == true, "contract is not listed");
+        require(block.timestamp < realeaseDate, "the date of maturity has passed");
+        uint total = Deposit + currentFee;
+        require(msg.value>=total,"funds note enough to purchace contract");
         contractSold = true;
+        handlerBalance += currentFee;
+        _mint(msg.sender,futureToken,1, "");
+        returnChange(total);
         return true;
     }
-    // token holder can redeem contract once time has elaps
-    function BuyAsset()public payable FutureToken PurchaseAsset returns(bool,string memory){
-        payable(msg.sender).transfer(Deposit);
-        Asset.safeBatchTransferFrom(address(this), msg.sender, Tokens, TokenAmmounts, "0x0");
+    // token holder pays the price within the window, gets the deposit back and receives the assets
+    function BuyAsset()public payable FutureToken nonReentrant returns(bool,string memory){
+        require(CompletionStatus == false, "Contract is already completed");
+        require(block.timestamp >= realeaseDate,"the date of maturity has not passed");
+        require(!inDefault(), "Contract in Default");
+        require(msg.value >= price,"not enough funds");
+
         CompletionStatus = true;
+        handlerBalance += price;
+        _burn(msg.sender, futureToken, 1);
+        Asset.safeBatchTransferFrom(address(this), msg.sender, Tokens, TokenAmmounts, "");
+        (bool sent,) = payable(msg.sender).call{value: Deposit + msg.value - price}("");
+        require(sent, "Payment failed");
         return (true,"Future Contract Redeemed");
     }
-    function redeemDeposit()public payable Handler returns(bool,string memory){
-        require(contractSold = true,"contract not sold");
-        payable(msg.sender).transfer(Deposit + currentFee);
+    // Pays the handler what it is owed. After a default that includes the deposit, and the assets come back
+    function redeemDeposit()public Handler nonReentrant returns(bool,string memory){
+        bool settling = inDefault() && !defaultSettled;
+        if(settling){
+            defaultSettled = true;
+            handlerBalance += Deposit;
+        }
+        uint amount = handlerBalance;
+        require(amount > 0, "Nothing to redeem");
+        handlerBalance = 0;
+        if(settling){
+            Asset.safeBatchTransferFrom(address(this), msg.sender, Tokens, TokenAmmounts, "");
+        }
+        (bool sent,) = payable(msg.sender).call{value: amount}("");
+        require(sent, "Payment failed");
         return (true,"Future Contract Redeemed");
     }
-    function checkContractStatus()public returns(string memory) {
-        if(status() == true){
-            return ("Contract is in Default");
-        } else if(CompletionStatus = true){
+    function checkContractStatus()public view returns(string memory) {
+        if(CompletionStatus == true){
             return "Contract is Completed";
+        } else if(inDefault()){
+            return ("Contract is in Default");
         } else {
             return "Contract Currently Pending";
         }
     }
-    //ERC1155Received fuctions
-    function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
-        return this.onERC1155Received.selector;
-    }
-    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory) public virtual returns (bytes4) {
+    // Accepts only the assets this contract moves in itself, so nothing else can get stuck here
+    function onERC1155BatchReceived(address _operator, address, uint256[] memory, uint256[] memory, bytes memory) public virtual returns (bytes4) {
+        require(msg.sender == AssetTokenAddress && _operator == address(this), "this contract does not accept tokens");
         return this.onERC1155BatchReceived.selector;
     }
-    function onERC721Received(address, address, uint256, bytes memory) public virtual returns (bytes4) {
-        return this.onERC721Received.selector;
-    }
-
-    fallback() external payable {}
-    receive() external payable {} 
 }

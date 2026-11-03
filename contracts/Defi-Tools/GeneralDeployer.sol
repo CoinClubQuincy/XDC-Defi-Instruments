@@ -4,8 +4,7 @@ pragma solidity ^0.8.9;
 
 /// @title General Deployer
 /// @author R Quincy Jones
-/// @notice this is a repository stored on chain to version code
-/// @dev a free open source github alternative
+/// @notice deploys contracts from bytecode and keeps a list of them
 
 contract ManagerDeployer{
     uint public totalContracts = 0;
@@ -51,6 +50,7 @@ contract ManagerDeployer{
         assembly {
             child := create(0, add(bytecode, 0x20), mload(bytecode))
         }
+        require(child != address(0), "deployment failed");
         return child;
     }
 

@@ -8,10 +8,12 @@ import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 /// @dev DocuToken
 
 contract Document is ERC1155{
-    uint public handlerToken = 0;
+    uint public handlerToken;
     uint public totalDocs = 0;
 
     constructor(string memory _URI,uint _totalHandles)ERC1155(_URI){
+        require(_totalHandles > 0, "at least one handler is required");
+        handlerToken = uint(keccak256(abi.encodePacked(_URI))); //Document tokens count up from 0, so this must not be 0
         _mint(msg.sender,handlerToken,_totalHandles, "");
     }
 

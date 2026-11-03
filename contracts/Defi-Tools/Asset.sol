@@ -31,7 +31,6 @@ contract Asset is ERC1155 {
         _mint(msg.sender,handlerToken,1, "");
     }
     //The Handler function allows the holder of the handler token to allows the owner of the contract create more assets 
-    // As well as allows only the handler to redeem value from the contract
     modifier handler(){
         require(balanceOf(msg.sender,handlerToken) >= 1, "user does not hold handlerToken");
         _;
@@ -68,17 +67,16 @@ contract Asset is ERC1155 {
     //if the broker for any reason need to move the asset from an abandond account
     //they can use the move Asset function 
     function moveAsset(uint _Token,address _userA,address _userB,uint _amount)public handler returns(bool){
-        require(balanceOf(_userA, _Token) >= 1, "Insufficient balance");
-        safeTransferFrom(_userA, _userB, _Token, _amount, "0x0");
+        require(_Token < totalCoins, "Token does not exist");
+        require(_amount > 0 && balanceOf(_userA, _Token) >= _amount, "Insufficient balance");
+        _safeTransferFrom(_userA, _userB, _Token, _amount, "");
         return true;
     }
 
     function destroyAsset(uint Token,address _userA)public handler returns(bool){
+        require(Token < totalCoins, "Token does not exist");
         require(balanceOf(_userA, Token) >= 1, "Insufficient balance");
         _burn(_userA, Token, 1);
         return true;
     }
-
-    fallback() external payable {}
-    receive() external payable {} 
 }

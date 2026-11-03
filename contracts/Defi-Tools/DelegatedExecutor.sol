@@ -2,18 +2,20 @@
 pragma solidity >=0.8.2 <0.9.0;
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
 
 /// @title Delegate Executor Contract
 /// @author R Quincy Jones
-/// @notice This is a contract that is meant to execute and manage assets on behalf of a user who does not hold crypto
+/// @notice This is a contract that is meant to execute and manage assets on behalf of a user who does not hold crypto.
+/// Every key has full control. There is no password, because anything sent to a public chain is public
 
 contract DelegateExecutor is ERC1155{
-    uint public handlerToken;  
-    uint public pass;
+    using SafeERC20 for IERC20;
 
-    constructor(string memory _URI,uint _totalKeys,address _mastercontract,string memory _pass) ERC1155(_URI) {
-        pass = uint(keccak256(abi.encodePacked(_pass))); //Double Hash
+    uint public handlerToken;  
+
+    constructor(string memory _URI,uint _totalKeys,address _mastercontract) ERC1155(_URI) {
         require(_totalKeys >= 3, "3 key minimum");
 
         handlerToken = uint(keccak256(abi.encodePacked(_URI)));
@@ -26,52 +28,41 @@ contract DelegateExecutor is ERC1155{
         _;
     }
 
-    function Send(address _sendTo,uint _amount,string memory _pass)public Handler payable returns(bool){
-        require(pass == uint(keccak256(abi.encodePacked(_pass))),"incorect Password");
-        payable(_sendTo).transfer(_amount);
+    function Send(address _sendTo,uint _amount)public Handler payable returns(bool){
+        require(_sendTo != address(0), "Invalid address");
+        require(_amount > 0, "Amount must be greater than 0");
+        (bool sent,) = payable(_sendTo).call{value: _amount}("");
+        require(sent, "Payment failed");
         return true;
     }
 
-    function SendXRC20(address _sendTo,uint _amount,string memory _pass,address _tokenAddress)public Handler returns(bool){
-        require(pass == uint(keccak256(abi.encodePacked(_pass))),"incorect Password");
+    function SendXRC20(address _sendTo,uint _amount,address _tokenAddress)public Handler returns(bool){
         require(_sendTo != address(0), "Invalid address");
         require(_amount > 0, "Amount must be greater than 0");
 
-        IERC20 token;
-        token = IERC20(_tokenAddress);
-
-        token.transfer(_sendTo, _amount);
+        IERC20(_tokenAddress).safeTransfer(_sendTo, _amount);
         return true;
     }
 
-    function SendXRC1155(address _sendTo,string memory _pass,address _tokenAddress,uint[] memory _amount,uint[] memory _tokenId,bytes memory data)public Handler returns(bool){
-        require(pass == uint(keccak256(abi.encodePacked(_pass))),"incorect Password");
+    function SendXRC1155(address _sendTo,address _tokenAddress,uint[] memory _amount,uint[] memory _tokenId,bytes memory data)public Handler returns(bool){
         require(_tokenId.length == _amount.length,"the toal amount of _tokenId  needs to match the total _amount length in each array");
+        require(_tokenId.length > 0, "Nothing to send");
         require(_sendTo != address(0), "Invalid address");
-        for(uint i = 0;i <= _tokenId.length;i++){
-            require(i > 0, "Amount must be greater than 0");
+        for(uint i = 0;i < _amount.length;i++){
+            require(_amount[i] > 0, "Amount must be greater than 0");
         }
 
-        IERC1155  token;
-        token = IERC1155(_tokenAddress);
-        token.safeBatchTransferFrom(address(this), _sendTo, _tokenId, _amount, data);
-        return true;
-    }
-    
-    function checkPass(string memory _pass)public view Handler returns(bool){
-        require(pass == uint(keccak256(abi.encodePacked(_pass))),"incorect Password");
+        IERC1155(_tokenAddress).safeBatchTransferFrom(address(this), _sendTo, _tokenId, _amount, data);
         return true;
     }
 
-    function changePass(string memory _oldPass,string memory _newPass)public Handler returns(bool){
-        require(pass == uint(keccak256(abi.encodePacked(_oldPass))),"incorect Password");
-        pass = uint(keccak256(abi.encodePacked(_newPass)));
-        return true;
-    }
-
-    function delegateCall(address _contract,string memory _function, uint[] memory _call) public payable returns(bool,bytes memory){
-        (bool success, bytes memory data) = _contract.delegatecall(abi.encodeWithSignature(_function, _call));
-        return (success,data);
+    /// @notice Calls another contract on behalf of this one. This replaces a delegatecall, which ran
+    /// outside code with this contract's own storage and balance and could be used by anyone
+    function executeCall(address _contract,uint _value,bytes memory _data) public Handler payable returns(bytes memory){
+        require(_contract.code.length > 0, "Target is not a contract");
+        (bool success, bytes memory result) = _contract.call{value: _value}(_data);
+        require(success, "Call failed");
+        return result;
     }
 
     //ERC1155Received fuctions
@@ -85,7 +76,5 @@ contract DelegateExecutor is ERC1155{
         return this.onERC721Received.selector;
     }
 
-
-    fallback() external payable {}
     receive() external payable {} 
 }

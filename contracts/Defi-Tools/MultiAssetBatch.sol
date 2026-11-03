@@ -3,15 +3,14 @@
 pragma solidity ^0.8.9;
 
 import "@openzeppelin/contracts/token/ERC1155/ERC1155.sol";
-import "@openzeppelin/contracts/token/ERC1155/IERC1155.sol";
-import "@openzeppelin/contracts/utils/math/SafeMath.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /// @title Multi Asset Batch Contract
 /// @author Quincy J
 /// @notice This contract is meant to allow a multitude of different assets from different contracts to be referenced by a single token
 /// @dev This contract is built to allow for more complex contracts to only have to manage  a single token rather than a complex multitude of different tokens
 
-contract MultiAssetBatch is ERC1155{
+contract MultiAssetBatch is ERC1155, ReentrancyGuard{
     uint public handlerToken;
     string public batchName;
     uint public tokenIDNumber = 0;
@@ -45,48 +44,47 @@ contract MultiAssetBatch is ERC1155{
         _;
     }
     
-    function addAssets(address _contract,string memory _assetName,uint[] memory _id,uint[] memory _amount)public handler returns(string memory,bool){
-        require(tokenIDNumber <= maxBatchSize,"Contract has hit Max Batch limit");
+    // Moves tokens in. The caller must approve this contract on the token contract first.
+    // maxBatchSize limits how many token contracts one batch can hold
+    function addAssets(address _contract,string memory _assetName,uint[] memory _id,uint[] memory _amount)public handler nonReentrant returns(string memory,bool){
         require(_contract != address(0), "Contract address cannot be 0");
         require(bytes(_assetName).length > 0, "Asset name cannot be empty");
         require(_id.length > 0, "ID array cannot be empty");
         require(_amount.length > 0, "Amount array cannot be empty");
         require(_id.length == _amount.length ,"Both the token id and the amount arrays must have the same length");
         
-        ERC1155 tokenContract = ERC1155(_contract);
-
+        string memory result;
         if(assetContract[_contract].exist == false){
+            require(tokenIDNumber < maxBatchSize,"Contract has hit Max Batch limit");
             assetContract[_contract] = Assets(_contract,_assetName,_amount,_id,tokenIDNumber,true);
             assetID[tokenIDNumber] = Assets(_contract,_assetName,_amount,_id,tokenIDNumber,true);
             tokenIDNumber++;
-
-            for(uint i =0;i<= _id.length;i++){
-                require(tokenContract.balanceOf(msg.sender,_id[i]) >= 1,"user is missing a token");
-            }
-
-            tokenContract.safeBatchTransferFrom(msg.sender, address(this), _id, _amount, "");
-            return ("new asset added",true);
-
-        }else if(assetContract[_contract].exist == true && _id.length != 0 && _amount.length != 0 && _amount.length == _id.length){
+            result = "new asset added";
+        }else{
+            uint count = assetContract[_contract].count;
             for(uint256 i = 0; i < _id.length; i++){
                 assetContract[_contract].assetID.push(_id[i]);
                 assetContract[_contract].amount.push(_amount[i]);
 
-                assetID[assetContract[_contract].count].assetID.push(_id[i]);
-                assetID[assetContract[_contract].count].amount.push(_amount[i]);
+                assetID[count].assetID.push(_id[i]);
+                assetID[count].amount.push(_amount[i]);
             }
-            tokenContract.safeBatchTransferFrom(msg.sender, address(this), _id, _amount, "");
-
-            return ("Assets Added",true);
-        } else {
-            return ("asset already exist",false);
+            result = "Assets Added";
         }
+        ERC1155(_contract).safeBatchTransferFrom(msg.sender, address(this), _id, _amount, "");
+        return (result,true);
     }
 
-    function redeemAssets()public handler returns(bool){
-        for(uint i; i <= tokenIDNumber;i++){
-            ERC1155 tokenContract = ERC1155(assetID[i].assetContract);
-            tokenContract.safeBatchTransferFrom(address(this),msg.sender, assetID[i].assetID, assetID[i].amount, "");
+    // Sends everything to the caller and empties the batch, so it can be filled again.
+    // Any one handler key can do this
+    function redeemAssets()public handler nonReentrant returns(bool){
+        uint total = tokenIDNumber;
+        tokenIDNumber = 0;
+        for(uint i; i < total;i++){
+            Assets memory asset = assetID[i];
+            delete assetID[i];
+            delete assetContract[asset.assetContract];
+            ERC1155(asset.assetContract).safeBatchTransferFrom(address(this),msg.sender, asset.assetID, asset.amount, "");
         }
         return true;
     }
@@ -95,17 +93,9 @@ contract MultiAssetBatch is ERC1155{
         return (assetID[_tokenIDNumber].assetContract,assetID[_tokenIDNumber].assetName,assetID[_tokenIDNumber].amount,assetID[_tokenIDNumber].assetID,assetID[_tokenIDNumber].count,assetID[_tokenIDNumber].exist);
     }
 
-    //ERC1155Received fuctions
-    function onERC1155Received(address, address, uint256, uint256, bytes memory) public virtual returns (bytes4) {
-        return this.onERC1155Received.selector;
-    }
-    function onERC1155BatchReceived(address, address, uint256[] memory, uint256[] memory, bytes memory) public virtual returns (bytes4) {
+    // Accepts only what this contract moves in itself, so nothing else can get stuck here
+    function onERC1155BatchReceived(address _operator, address, uint256[] memory, uint256[] memory, bytes memory) public virtual returns (bytes4) {
+        require(_operator == address(this), "this contract does not accept tokens");
         return this.onERC1155BatchReceived.selector;
     }
-    function onERC721Received(address, address, uint256, bytes memory) public virtual returns (bytes4) {
-        return this.onERC721Received.selector;
-    }
-
-    fallback() external payable {}
-    receive() external payable {} 
 }
